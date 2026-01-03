@@ -21,12 +21,18 @@ export class ProjectsService {
   ) {}
 
   async findAll(filters: ProjectFilters) {
-    // If search query is provided, search GitHub instead of database
-    if (filters.search && filters.search.trim().length > 0) {
-      return this.searchGitHub(filters);
+    // If search query is provided OR filters are applied, search GitHub instead of database
+    // (GitHub search is more comprehensive than local database)
+    const hasSearchQuery = filters.search && filters.search.trim().length > 0;
+    const hasFilters = filters.category || filters.language || filters.minStars || filters.sortBy;
+    
+    if (hasSearchQuery || hasFilters) {
+      // Use search query or default to empty string (GitHub will return popular repos)
+      const searchQuery = hasSearchQuery ? filters.search! : '';
+      return this.searchGitHub({ ...filters, search: searchQuery });
     }
 
-    // Otherwise, query from database
+    // Otherwise, query from database (fallback for when no search/filters)
     const queryBuilder = this.projectsRepository.createQueryBuilder('project');
 
     // Apply filters
@@ -84,12 +90,13 @@ export class ProjectsService {
         filters.language !== 'All' ? filters.language : undefined,
         sortBy,
         order,
-        30,
+        100, // Get more results to filter by category
+        filters.minStars, // Pass minStars to GitHub API
       );
 
       // Map GitHub repositories to our Project format
       // Note: We skip contributors count to speed up response (can be slow for many repos)
-      const projects = githubResponse.items.map((repo, index) => {
+      let projects = githubResponse.items.map((repo, index) => {
           // Calculate rank based on stars (simple ranking)
           const rank = index + 1;
 
@@ -105,6 +112,18 @@ export class ProjectsService {
               category = 'Mobile';
             } else if (['docker', 'kubernetes', 'terraform', 'ansible'].some(l => lang.includes(l))) {
               category = 'DevOps';
+            } else if (['python', 'tensorflow', 'pytorch', 'machine-learning', 'ai', 'ml'].some(l => 
+              lang.includes(l) || repo.topics?.some(t => t.toLowerCase().includes(l))
+            )) {
+              category = 'AI/ML';
+            } else if (['game', 'unity', 'unreal', 'gamedev'].some(l => 
+              repo.topics?.some(t => t.toLowerCase().includes(l))
+            )) {
+              category = 'GameDev';
+            } else if (['os', 'kernel', 'system', 'operating-system'].some(l => 
+              repo.topics?.some(t => t.toLowerCase().includes(l))
+            )) {
+              category = 'Systems';
             }
           }
 
@@ -136,10 +155,15 @@ export class ProjectsService {
           } as Project;
         });
 
-      // Apply minStars filter if specified
+      // Apply category filter if specified (minStars already applied in GitHub query)
       let filteredProjects = projects;
-      if (filters.minStars) {
-        filteredProjects = projects.filter(p => p.stars >= filters.minStars!);
+      if (filters.category && filters.category !== 'All') {
+        filteredProjects = projects.filter(p => p.category === filters.category);
+      }
+
+      // Apply additional minStars filter as safety check (though GitHub should have filtered)
+      if (filters.minStars && filters.minStars > 0) {
+        filteredProjects = filteredProjects.filter(p => p.stars >= filters.minStars!);
       }
 
       return {

@@ -46,13 +46,19 @@ export class GitHubService {
     return headers;
   }
 
-  async searchRepositories(query: string, language?: string, sort: string = 'stars', order: string = 'desc', perPage: number = 30): Promise<GitHubSearchResponse> {
+  async searchRepositories(query: string, language?: string, sort: string = 'stars', order: string = 'desc', perPage: number = 30, minStars?: number): Promise<GitHubSearchResponse> {
     try {
       // Build search query - only open source repositories
-      let searchQuery = `${query} is:public`;
+      // If query is empty, search for all public repos (will be filtered by other params)
+      let searchQuery = query.trim().length > 0 ? `${query} is:public` : 'is:public';
       
       if (language && language !== 'All') {
         searchQuery += ` language:${language}`;
+      }
+
+      // Add stars filter to GitHub query if specified
+      if (minStars && minStars > 0) {
+        searchQuery += ` stars:>=${minStars}`;
       }
 
       const params = new URLSearchParams({
