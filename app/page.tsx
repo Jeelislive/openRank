@@ -267,6 +267,7 @@ export default function Home() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ duration: 0.3, delay: index * 0.1 }}
+                className="h-full"
               >
                 <ProjectCard project={project} />
               </motion.div>

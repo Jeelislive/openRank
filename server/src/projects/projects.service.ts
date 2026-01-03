@@ -74,9 +74,15 @@ export class ProjectsService {
 
     const projects = await queryBuilder.getMany();
 
+    // Calculate activity level for database projects based on lastUpdated
+    const projectsWithActivity = projects.map(project => ({
+      ...project,
+      status: this.calculateActivityFromLastUpdated(project.lastUpdated),
+    }));
+
     return {
-      projects,
-      total: projects.length,
+      projects: projectsWithActivity,
+      total: projectsWithActivity.length,
     };
   }
 
@@ -85,12 +91,14 @@ export class ProjectsService {
       const sortBy = filters.sortBy || 'Stars';
       const order = sortBy === 'Stars' || sortBy === 'Forks' ? 'desc' : 'desc';
       
+      // Fetch more results to get diverse activity levels
+      // Popular repos are often recently updated, so we need more results to find variety
       const githubResponse = await this.githubService.searchRepositories(
         filters.search!,
         filters.language !== 'All' ? filters.language : undefined,
         sortBy,
         order,
-        100, // Get more results to filter by category
+        200, // Increased to get more diverse activity levels
         filters.minStars, // Pass minStars to GitHub API
       );
 
@@ -137,6 +145,18 @@ export class ProjectsService {
           // Format last updated
           const lastUpdated = this.formatLastUpdated(repo.updated_at);
 
+          // Determine activity level based on last updated date
+          // Use the raw updated_at date from GitHub API (ISO 8601 format)
+          const activityLevel = this.getActivityLevel(repo.updated_at);
+          
+          // Temporary debug: Log activity distribution (remove after verification)
+          if (index < 5) {
+            const date = new Date(repo.updated_at);
+            const now = new Date();
+            const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+            console.log(`[${index}] ${repo.name}: updated_at=${repo.updated_at}, diffDays=${diffDays}, activity=${activityLevel}`);
+          }
+
           return {
             id: repo.id,
             name: repo.name,
@@ -145,7 +165,7 @@ export class ProjectsService {
             tags,
             stars: repo.stargazers_count,
             forks: repo.forks_count,
-            status: 'Active',
+            status: activityLevel, // Use activity level instead of 'Active'
             language: repo.language || 'Unknown',
             category,
             lastUpdated,
@@ -166,9 +186,12 @@ export class ProjectsService {
         filteredProjects = filteredProjects.filter(p => p.stars >= filters.minStars!);
       }
 
+      // Limit to 30 results for display (but we fetched more to get diverse activity levels)
+      const limitedProjects = filteredProjects.slice(0, 30);
+
       return {
-        projects: filteredProjects,
-        total: filteredProjects.length,
+        projects: limitedProjects,
+        total: limitedProjects.length,
       };
     } catch (error) {
       console.error('GitHub search error:', error);
@@ -192,6 +215,86 @@ export class ProjectsService {
     if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
     if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
     return `${Math.floor(diffDays / 365)} years ago`;
+  }
+
+  private getActivityLevel(dateString: string): 'Most Active' | 'Medium' | 'Rare' {
+    try {
+      const date = new Date(dateString);
+      
+      // Validate date
+      if (isNaN(date.getTime())) {
+        console.warn(`Invalid date string: ${dateString}, defaulting to Rare`);
+        return 'Rare';
+      }
+
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+      // Handle negative days (future dates) - shouldn't happen but just in case
+      if (diffDays < 0) {
+        return 'Most Active';
+      }
+
+
+      // Most Active: Updated within last 7 days (0-7 days)
+      if (diffDays <= 7) {
+        return 'Most Active';
+      }
+      // Medium: Updated within last 30 days (8-30 days)
+      if (diffDays <= 30) {
+        return 'Medium';
+      }
+      // Rare: Updated more than 30 days ago (31+ days)
+      return 'Rare';
+    } catch (error) {
+      console.error(`Error calculating activity level for date: ${dateString}`, error);
+      return 'Rare';
+    }
+  }
+
+  private calculateActivityFromLastUpdated(lastUpdated: string): 'Most Active' | 'Medium' | 'Rare' {
+    // Parse the lastUpdated string (format: "Today", "1 day ago", "2 days ago", etc.)
+    const now = new Date();
+    let diffDays = 0;
+
+    if (lastUpdated === 'Today') {
+      diffDays = 0;
+    } else if (lastUpdated === '1 day ago') {
+      diffDays = 1;
+    } else if (lastUpdated.includes('days ago')) {
+      diffDays = parseInt(lastUpdated) || 0;
+    } else if (lastUpdated.includes('weeks ago')) {
+      const weeks = parseInt(lastUpdated) || 0;
+      diffDays = weeks * 7;
+    } else if (lastUpdated.includes('months ago')) {
+      const months = parseInt(lastUpdated) || 0;
+      diffDays = months * 30;
+    } else if (lastUpdated.includes('years ago')) {
+      const years = parseInt(lastUpdated) || 0;
+      diffDays = years * 365;
+    } else {
+      // Try to parse as ISO date string
+      const date = new Date(lastUpdated);
+      if (!isNaN(date.getTime())) {
+        const diffMs = now.getTime() - date.getTime();
+        diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      } else {
+        // Default to Rare if we can't parse
+        return 'Rare';
+      }
+    }
+
+    // Most Active: Updated within last 7 days
+    if (diffDays <= 7) {
+      return 'Most Active';
+    }
+    // Medium: Updated within last 30 days
+    if (diffDays <= 30) {
+      return 'Medium';
+    }
+    // Rare: Updated more than 30 days ago
+    return 'Rare';
   }
 
   async getCategories(): Promise<string[]> {
