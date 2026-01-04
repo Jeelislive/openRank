@@ -22,11 +22,15 @@ interface Project {
 
 interface ProjectCardProps {
   project: Project
+  onCardClick?: (fullName: string) => void
 }
 
-export default function ProjectCard({ project }: ProjectCardProps) {
+export default function ProjectCard({ project, onCardClick }: ProjectCardProps) {
   const handleClick = () => {
-    if (project.githubUrl) {
+    if (project.fullName && onCardClick) {
+      onCardClick(project.fullName)
+    } else if (project.githubUrl) {
+      // Fallback to opening GitHub if no modal handler
       window.open(project.githubUrl, '_blank', 'noopener,noreferrer')
     }
   }

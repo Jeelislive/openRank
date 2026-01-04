@@ -7,6 +7,7 @@ import ProjectCard from '@/components/ProjectCard'
 import FilterPanel from '@/components/FilterPanel'
 import StatsSection from '@/components/StatsSection'
 import ThemeToggle from '@/components/ThemeToggle'
+import RepositoryModal from '@/components/RepositoryModal'
 import { getProjects, extractKeywords, type Project, type Filters } from '@/lib/api'
 import { useAnimatedPlaceholder } from '@/hooks/useAnimatedPlaceholder'
 
@@ -31,6 +32,8 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
+  const [selectedRepo, setSelectedRepo] = useState<string | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   // Animated placeholder
   const animatedPlaceholder = useAnimatedPlaceholder()
@@ -371,7 +374,13 @@ export default function Home() {
                 transition={{ duration: 0.3, delay: index * 0.1 }}
                 className="h-full"
               >
-                <ProjectCard project={project} />
+                <ProjectCard 
+                  project={project} 
+                  onCardClick={(fullName) => {
+                    setSelectedRepo(fullName)
+                    setIsModalOpen(true)
+                  }}
+                />
               </motion.div>
             ))}
           </AnimatePresence>
@@ -433,6 +442,16 @@ export default function Home() {
           </motion.button>
         )}
       </AnimatePresence>
+
+      {/* Repository Modal */}
+      <RepositoryModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false)
+          setSelectedRepo(null)
+        }}
+        fullName={selectedRepo || ''}
+      />
     </main>
   )
 }

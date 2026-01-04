@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Post, Body } from '@nestjs/common';
+import { Controller, Get, Query, Post, Body, Param } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 
 @Controller('api/projects')
@@ -25,5 +25,10 @@ export class ProjectsController {
   @Post('extract-keywords')
   async extractKeywords(@Body() body: { query: string }) {
     return this.projectsService.extractKeywordsFromQuery(body.query);
+  }
+
+  @Get('details/:owner/:repo')
+  async getRepositoryDetails(@Param('owner') owner: string, @Param('repo') repo: string) {
+    return this.projectsService.getRepositoryDetails(owner, repo);
   }
 }

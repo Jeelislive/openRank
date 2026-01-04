@@ -140,5 +140,62 @@ export class GitHubService {
       return 0;
     }
   }
+
+  async getContributors(owner: string, repo: string, perPage: number = 10): Promise<any[]> {
+    try {
+      const url = `${this.githubApiUrl}/repos/${owner}/${repo}/contributors?per_page=${perPage}`;
+      
+      const response = await fetch(url, {
+        headers: this.getHeaders(),
+      });
+
+      if (!response.ok) {
+        return [];
+      }
+
+      return await response.json();
+    } catch (error) {
+      return [];
+    }
+  }
+
+  async getLanguages(owner: string, repo: string): Promise<Record<string, number>> {
+    try {
+      const url = `${this.githubApiUrl}/repos/${owner}/${repo}/languages`;
+      
+      const response = await fetch(url, {
+        headers: this.getHeaders(),
+      });
+
+      if (!response.ok) {
+        return {};
+      }
+
+      return await response.json();
+    } catch (error) {
+      return {};
+    }
+  }
+
+  async getFullRepositoryDetails(owner: string, repo: string): Promise<any> {
+    try {
+      const url = `${this.githubApiUrl}/repos/${owner}/${repo}`;
+      
+      const response = await fetch(url, {
+        headers: this.getHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new HttpException(`GitHub API error: ${response.statusText}`, response.status);
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(`Failed to fetch repository: ${error.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 }
 

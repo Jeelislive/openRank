@@ -315,6 +315,69 @@ export class ProjectsService {
     return result.map((r) => r.language).filter(Boolean);
   }
 
+  async getRepositoryDetails(owner: string, repo: string) {
+    try {
+      // Fetch all details in parallel
+      const [repoDetails, contributors, languages] = await Promise.all([
+        this.githubService.getFullRepositoryDetails(owner, repo),
+        this.githubService.getContributors(owner, repo, 20), // Get top 20 contributors
+        this.githubService.getLanguages(owner, repo),
+      ]);
+
+      // Calculate language percentages
+      const totalBytes = Object.values(languages).reduce((sum: number, bytes: any) => sum + bytes, 0);
+      const languagesWithPercentages = Object.entries(languages).map(([lang, bytes]) => ({
+        name: lang,
+        bytes: bytes as number,
+        percentage: totalBytes > 0 ? ((bytes as number / totalBytes) * 100).toFixed(1) : '0',
+      })).sort((a, b) => b.bytes - a.bytes);
+
+      return {
+        repository: {
+          id: repoDetails.id,
+          name: repoDetails.name,
+          fullName: repoDetails.full_name,
+          description: repoDetails.description,
+          url: repoDetails.html_url,
+          homepage: repoDetails.homepage,
+          stars: repoDetails.stargazers_count,
+          forks: repoDetails.forks_count,
+          watchers: repoDetails.watchers_count,
+          openIssues: repoDetails.open_issues_count,
+          defaultBranch: repoDetails.default_branch,
+          createdAt: repoDetails.created_at,
+          updatedAt: repoDetails.updated_at,
+          pushedAt: repoDetails.pushed_at,
+          license: repoDetails.license?.name || 'No License',
+          topics: repoDetails.topics || [],
+          archived: repoDetails.archived,
+          disabled: repoDetails.disabled,
+        },
+        owner: {
+          login: repoDetails.owner.login,
+          avatar: repoDetails.owner.avatar_url,
+          url: repoDetails.owner.html_url,
+          type: repoDetails.owner.type,
+        },
+        maintainers: repoDetails.owner.type === 'Organization' ? [] : [{
+          login: repoDetails.owner.login,
+          avatar: repoDetails.owner.avatar_url,
+          url: repoDetails.owner.html_url,
+        }],
+        contributors: contributors.map((contrib: any) => ({
+          login: contrib.login,
+          avatar: contrib.avatar_url,
+          url: contrib.html_url,
+          contributions: contrib.contributions,
+        })),
+        languages: languagesWithPercentages,
+      };
+    } catch (error) {
+      console.error('Error fetching repository details:', error);
+      throw error;
+    }
+  }
+
   extractKeywordsFromQuery(query: string): { keywords: string[]; searchQuery: string } {
     if (!query || query.trim().length === 0) {
       return { keywords: [], searchQuery: '' };
