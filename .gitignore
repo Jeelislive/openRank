@@ -34,8 +34,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# server build files
-/server/dist
-/server/node_modules
-/server/.env
+# backend build files
+/backend/dist
+/backend/node_modules
+/backend/.env
+
+# frontend build files
+/frontend/.next
+/frontend/node_modules
+/frontend/.env.local
 
