@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter, Poppins, JetBrains_Mono } from 'next/font/google'
+import { Inter, Poppins, JetBrains_Mono, Caveat } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 
@@ -22,6 +22,13 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
 })
 
+const caveat = Caveat({ 
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-signature',
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
   title: 'OpenRank - Find Your Next Open Source Contribution',
   description: 'Discover high-impact open source projects tailored to your skills. No login, no friction, just pure coding.',
@@ -34,7 +41,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.variable} ${poppins.variable} ${jetbrainsMono.variable} ${inter.className}`}>
+      <body className={`${inter.variable} ${poppins.variable} ${jetbrainsMono.variable} ${caveat.variable} ${inter.className}`}>
         <ThemeProvider>
           {children}
         </ThemeProvider>

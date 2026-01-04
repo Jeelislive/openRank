@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, Post, Body } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 
 @Controller('api/projects')
@@ -20,5 +20,10 @@ export class ProjectsController {
       minStars: minStars ? parseInt(minStars) : undefined,
       search,
     });
+  }
+
+  @Post('extract-keywords')
+  async extractKeywords(@Body() body: { query: string }) {
+    return this.projectsService.extractKeywordsFromQuery(body.query);
   }
 }

@@ -12,6 +12,7 @@ module.exports = {
         sans: ['var(--font-inter)', 'sans-serif'],
         heading: ['var(--font-poppins)', 'sans-serif'],
         mono: ['var(--font-mono)', 'monospace'],
+        signature: ['var(--font-signature)', 'cursive'],
       },
       colors: {
         primary: {

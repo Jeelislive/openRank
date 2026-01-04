@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Filter, X, ArrowRight, Github, Twitter, MessageCircle, ChevronUp, Loader2 } from 'lucide-react'
+import { Search, Filter, X, ArrowRight, Github, Twitter, MessageCircle, ChevronUp, Loader2, Sparkles } from 'lucide-react'
 import ProjectCard from '@/components/ProjectCard'
 import FilterPanel from '@/components/FilterPanel'
 import StatsSection from '@/components/StatsSection'
 import ThemeToggle from '@/components/ThemeToggle'
-import { getProjects, type Project, type Filters } from '@/lib/api'
+import { getProjects, extractKeywords, type Project, type Filters } from '@/lib/api'
+import { useAnimatedPlaceholder } from '@/hooks/useAnimatedPlaceholder'
 
 const sortOptions = ['Rank', 'Stars', 'Forks', 'Recently Updated', 'Most Active']
 
@@ -28,26 +29,86 @@ export default function Home() {
   const languages = ['All', 'JavaScript', 'TypeScript', 'Python', 'Java', 'Go', 'Rust', 'C++', 'C', 'C#', 'PHP', 'Ruby', 'Swift', 'Kotlin', 'Dart']
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [isFocused, setIsFocused] = useState(false)
 
-  // Debounced search query state
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
+  // Animated placeholder
+  const animatedPlaceholder = useAnimatedPlaceholder()
 
-  // Debounce search query with 300ms delay
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery)
-    }, 550)
-
-    return () => clearTimeout(timeoutId)
-  }, [searchQuery])
-
-  // Track if this is the first render
+  // Track if user has generated a search
   const [hasSearched, setHasSearched] = useState(false)
+  const [activeSearchQuery, setActiveSearchQuery] = useState('')
 
-  // Fetch projects when filters change (only if user has searched or changed filters)
+  // Handle Generate button - extract keywords and trigger search
+  const handleGenerate = async () => {
+    if (!searchQuery.trim() || generating) return
+
+    try {
+      setGenerating(true)
+      setError(null)
+      
+      // Extract keywords from natural language query (use in background, don't show)
+      const result = await extractKeywords(searchQuery)
+      
+      // Keep original query in search bar, use extracted keywords for API search
+      const finalQuery = result.searchQuery || searchQuery
+      setActiveSearchQuery(finalQuery) // Use extracted keywords for search
+      setHasSearched(true)
+      
+      // Trigger search immediately with extracted keywords
+      try {
+        setLoading(true)
+        const filters: Filters = {
+          category: selectedCategory !== 'All' ? selectedCategory : undefined,
+          language: selectedLanguage !== 'All' ? selectedLanguage : undefined,
+          sortBy,
+          minStars: minStars > 0 ? minStars : undefined,
+          search: finalQuery || undefined,
+        }
+        const response = await getProjects(filters)
+        setProjects(response.projects)
+      } catch (err) {
+        console.error('Error fetching projects:', err)
+        setError('Failed to load projects')
+        setProjects([])
+      } finally {
+        setLoading(false)
+      }
+    } catch (err) {
+      console.error('Error extracting keywords:', err)
+      setError('Failed to extract keywords. Using original query.')
+      // Fallback: use original query and trigger search
+      setActiveSearchQuery(searchQuery)
+      setHasSearched(true)
+      
+      // Trigger search with original query
+      try {
+        setLoading(true)
+        const filters: Filters = {
+          category: selectedCategory !== 'All' ? selectedCategory : undefined,
+          language: selectedLanguage !== 'All' ? selectedLanguage : undefined,
+          sortBy,
+          minStars: minStars > 0 ? minStars : undefined,
+          search: searchQuery || undefined,
+        }
+        const response = await getProjects(filters)
+        setProjects(response.projects)
+      } catch (err) {
+        console.error('Error fetching projects:', err)
+        setError('Failed to load projects')
+        setProjects([])
+      } finally {
+        setLoading(false)
+      }
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  // Fetch projects when filters change (only if user has already generated a search)
   useEffect(() => {
-    // Don't fetch on initial load - wait for user to search or apply filters
-    if (!hasSearched && !debouncedSearchQuery && selectedCategory === 'All' && selectedLanguage === 'All' && minStars === 0) {
+    // Only refetch if user has already generated a search
+    if (!hasSearched || !activeSearchQuery) {
       return
     }
 
@@ -55,13 +116,12 @@ export default function Home() {
       try {
         setLoading(true)
         setError(null)
-        setHasSearched(true)
         const filters: Filters = {
           category: selectedCategory !== 'All' ? selectedCategory : undefined,
           language: selectedLanguage !== 'All' ? selectedLanguage : undefined,
           sortBy,
           minStars: minStars > 0 ? minStars : undefined,
-          search: debouncedSearchQuery || undefined,
+          search: activeSearchQuery || undefined,
         }
         const response = await getProjects(filters)
         setProjects(response.projects)
@@ -75,7 +135,7 @@ export default function Home() {
     }
 
     fetchProjects()
-  }, [debouncedSearchQuery, selectedCategory, selectedLanguage, sortBy, minStars, hasSearched])
+  }, [selectedCategory, selectedLanguage, sortBy, minStars, activeSearchQuery, hasSearched])
 
   // Show scroll to top button
   useEffect(() => {
@@ -149,17 +209,59 @@ export default function Home() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="max-w-2xl mx-auto mb-12"
             >
-              <div className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 hover:border-gray-400 dark:hover:border-gray-600 transition-all bg-white dark:bg-gray-900 shadow-sm">
-                <div className="flex items-center gap-4">
-                  <Search className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                  <input
-                    type="text"
-                    placeholder="Search projects by name, description, or tags..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="flex-1 bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none"
-                  />
+              <div className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 hover:border-gray-400 dark:hover:border-gray-600 transition-all bg-white dark:bg-gray-900 shadow-sm relative">
+                <div className="flex items-center gap-4 relative">
+                  <Search className="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      placeholder={isFocused ? "Type your search query..." : " "}
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value)
+                      }}
+                      onFocus={() => setIsFocused(true)}
+                      onBlur={() => {
+                        // Only hide placeholder if there's no text
+                        if (!searchQuery.trim()) {
+                          setIsFocused(false)
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && searchQuery.trim()) {
+                          handleGenerate()
+                        }
+                      }}
+                      className="w-full bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none font-body"
+                    />
+                    {/* Animated placeholder overlay */}
+                    {!isFocused && !searchQuery && (
+                      <div className="absolute left-0 top-0 pointer-events-none flex items-center">
+                        <span className="text-gray-600 dark:text-gray-300 font-signature text-lg font-medium">
+                          {animatedPlaceholder}
+                        </span>
+                        <span className="ml-1 text-gray-600 dark:text-gray-300 animate-pulse font-signature text-lg">|</span>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleGenerate}
+                      disabled={!searchQuery.trim() || generating}
+                      className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
+                    >
+                      {generating ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Generating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          <span>Generate</span>
+                        </>
+                      )}
+                    </button>
                     <button
                       onClick={() => setShowFilters(!showFilters)}
                       className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"

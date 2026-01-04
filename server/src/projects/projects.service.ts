@@ -314,5 +314,90 @@ export class ProjectsService {
     
     return result.map((r) => r.language).filter(Boolean);
   }
+
+  extractKeywordsFromQuery(query: string): { keywords: string[]; searchQuery: string } {
+    if (!query || query.trim().length === 0) {
+      return { keywords: [], searchQuery: '' };
+    }
+
+    // Common stop words to filter out
+    const stopWords = new Set([
+      'i', 'want', 'to', 'work', 'in', 'repo', 'repository', 'repositories', 'where', 'are', 'used', 'use',
+      'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'for', 'with', 'by', 'from', 'is', 'was',
+      'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'should', 'could', 'may',
+      'might', 'must', 'can', 'this', 'that', 'these', 'those', 'what', 'which', 'who', 'when', 'why',
+      'how', 'all', 'each', 'every', 'some', 'any', 'no', 'not', 'only', 'just', 'also', 'more', 'most',
+      'very', 'too', 'so', 'such', 'as', 'like', 'about', 'into', 'onto', 'upon', 'within', 'without',
+      'project', 'projects', 'code', 'coding', 'develop', 'development', 'developer', 'developing'
+    ]);
+
+    // Extract keywords: tech terms, frameworks, libraries, tools
+    const techKeywords = [
+      // Frameworks & Libraries
+      'nestjs', 'express', 'react', 'vue', 'angular', 'nextjs', 'nuxt', 'svelte', 'remix',
+      'django', 'flask', 'fastapi', 'spring', 'laravel', 'rails', 'phoenix', 'gin', 'echo',
+      // Databases
+      'postgresql', 'postgres', 'mysql', 'mongodb', 'redis', 'cassandra', 'elasticsearch',
+      'sqlite', 'dynamodb', 'neo4j', 'influxdb',
+      // Message Queues & Streaming
+      'kafka', 'rabbitmq', 'redis', 'nats', 'pulsar', 'activemq',
+      // Cloud & DevOps
+      'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'k8s', 'terraform', 'ansible', 'jenkins',
+      'github', 'gitlab', 'ci', 'cd', 'devops',
+      // Languages
+      'javascript', 'typescript', 'python', 'java', 'go', 'rust', 'cpp', 'csharp', 'php',
+      'ruby', 'swift', 'kotlin', 'dart', 'scala', 'clojure', 'elixir', 'haskell',
+      // Tools & Others
+      'graphql', 'rest', 'api', 'microservices', 'serverless', 'lambda', 'grpc', 'websocket',
+      'oauth', 'jwt', 'oauth2', 'authentication', 'authorization', 'security', 'encryption',
+      'machine learning', 'ml', 'ai', 'deep learning', 'neural network', 'tensorflow', 'pytorch',
+      'blockchain', 'web3', 'ethereum', 'solidity', 'smart contract',
+      'testing', 'jest', 'mocha', 'pytest', 'junit', 'cypress', 'selenium'
+    ];
+
+    // Convert query to lowercase for processing
+    const lowerQuery = query.toLowerCase();
+    
+    // Extract tech keywords that appear in the query
+    const foundKeywords: string[] = [];
+    for (const keyword of techKeywords) {
+      if (lowerQuery.includes(keyword.toLowerCase())) {
+        foundKeywords.push(keyword);
+      }
+    }
+
+    // Extract other potential keywords (words that are not stop words and are meaningful)
+    const words = query
+      .toLowerCase()
+      .replace(/[^\w\s]/g, ' ') // Replace punctuation with spaces
+      .split(/\s+/)
+      .filter(word => word.length > 2 && !stopWords.has(word));
+
+    // Add unique meaningful words that aren't already in tech keywords
+    const additionalKeywords = words.filter(
+      word => !foundKeywords.some(kw => kw.toLowerCase().includes(word) || word.includes(kw.toLowerCase()))
+    );
+
+    // Combine tech keywords and additional keywords, remove duplicates
+    const allKeywords = [...new Set([...foundKeywords, ...additionalKeywords])];
+
+    // Build search query: combine keywords for better GitHub search
+    // GitHub search works better with specific tech terms
+    // If we found keywords, use them; otherwise use cleaned original query
+    let searchQuery = '';
+    if (allKeywords.length > 0) {
+      // Use extracted keywords for more precise search
+      searchQuery = allKeywords.join(' ');
+    } else {
+      // Fallback: clean the original query (remove stop words, keep meaningful terms)
+      const cleanedQuery = words.filter(w => w.length > 2).join(' ');
+      searchQuery = cleanedQuery || query;
+    }
+
+    return {
+      keywords: allKeywords,
+      searchQuery: searchQuery.trim(),
+    };
+  }
 }
 

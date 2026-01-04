@@ -114,3 +114,24 @@ export async function getLanguages(): Promise<string[]> {
   return response.json()
 }
 
+export interface KeywordExtractionResponse {
+  keywords: string[]
+  searchQuery: string
+}
+
+export async function extractKeywords(query: string): Promise<KeywordExtractionResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/projects/extract-keywords`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ query }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to extract keywords')
+  }
+
+  return response.json()
+}
+
