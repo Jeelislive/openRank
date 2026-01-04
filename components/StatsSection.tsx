@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { getUsersVisited, trackVisit } from '@/lib/api'
 
 export default function StatsSection() {
-  const [usersVisited, setUsersVisited] = useState(0)
+  const [usersVisited, setUsersVisited] = useState(189)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -19,7 +19,7 @@ export default function StatsSection() {
         setUsersVisited(data.count)
       } catch (error) {
         console.error('Error fetching users visited:', error)
-        setUsersVisited(0)
+        setUsersVisited(189)
       } finally {
         setLoading(false)
       }

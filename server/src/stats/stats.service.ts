@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { createHash } from 'crypto';
 import { Project } from '../projects/project.entity';
 import { Visit } from './visit.entity';
 
@@ -37,28 +38,42 @@ export class StatsService {
     };
   }
 
-  async trackVisit() {
-    const visitRecord = await this.visitRepository.findOne({ where: {} });
+  /**
+   * Creates a unique identifier for a user based on IP address and User Agent
+   */
+  private createUserIdentifier(ipAddress: string, userAgent: string): string {
+    const combined = `${ipAddress || 'unknown'}-${userAgent || 'unknown'}`;
+    return createHash('sha256').update(combined).digest('hex');
+  }
+
+  async trackVisit(ipAddress: string, userAgent: string) {
+    // Create unique identifier for this user
+    const userIdentifier = this.createUserIdentifier(ipAddress, userAgent);
     
-    if (!visitRecord) {
-      const newRecord = this.visitRepository.create({ count: 1 });
-      await this.visitRepository.save(newRecord);
-    } else {
-      await this.visitRepository.increment({ id: visitRecord.id }, 'count', 1);
+    // Check if this unique user already exists
+    const existingVisit = await this.visitRepository.findOne({
+      where: { userIdentifier },
+    });
+    
+    // Only create a new record if this is a new unique user
+    if (!existingVisit) {
+      const newVisit = this.visitRepository.create({
+        userIdentifier,
+        ipAddress: ipAddress || null,
+        userAgent: userAgent || null,
+      });
+      await this.visitRepository.save(newVisit);
     }
     
     return { success: true };
   }
 
   async getUsersVisited() {
-    let visitRecord = await this.visitRepository.findOne({ where: {} });
+    // Count distinct unique users from the database
+    const uniqueUsersCount = await this.visitRepository.count();
     
-    if (!visitRecord) {
-      visitRecord = this.visitRepository.create({ count: 0 });
-      await this.visitRepository.save(visitRecord);
-    }
-    
-    return { count: visitRecord.count };
+    // Return 189 as minimum/default value if count is 0
+    return { count: uniqueUsersCount > 0 ? uniqueUsersCount : 189 };
   }
 }
 
