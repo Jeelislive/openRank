@@ -68,24 +68,19 @@ export default function RepositoryModal({ isOpen, onClose, fullName }: Repositor
     }
   }, [isOpen, fullName])
 
-  // Disable background scroll when modal is open
   useEffect(() => {
     if (isOpen) {
-      // Save current scroll position
       const scrollY = window.scrollY
-      // Disable scroll
       document.body.style.position = 'fixed'
       document.body.style.top = `-${scrollY}px`
       document.body.style.width = '100%'
       document.body.style.overflow = 'hidden'
 
       return () => {
-        // Re-enable scroll when modal closes
         document.body.style.position = ''
         document.body.style.top = ''
         document.body.style.width = ''
         document.body.style.overflow = ''
-        // Restore scroll position
         window.scrollTo(0, scrollY)
       }
     }
@@ -133,14 +128,12 @@ export default function RepositoryModal({ isOpen, onClose, fullName }: Repositor
           className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         />
 
-        {/* Modal */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           className="relative bg-white dark:bg-[#1a1a1f] rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
         >
-          {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-800">
             <h2 className="text-2xl font-heading font-bold text-gray-900 dark:text-white">
               Repository Details
@@ -153,7 +146,6 @@ export default function RepositoryModal({ isOpen, onClose, fullName }: Repositor
             </button>
           </div>
 
-          {/* Content */}
           <div className="flex-1 overflow-y-auto p-6">
             {loading && (
               <div className="flex items-center justify-center py-20">
@@ -172,7 +164,6 @@ export default function RepositoryModal({ isOpen, onClose, fullName }: Repositor
 
             {details && !loading && (
               <div className="space-y-6">
-                {/* Repository Header */}
                 <div>
                   <div className="flex items-start gap-4 mb-4">
                     <img
@@ -223,7 +214,6 @@ export default function RepositoryModal({ isOpen, onClose, fullName }: Repositor
                     </div>
                   </div>
 
-                  {/* Stats */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
                       <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 mb-1">
@@ -264,7 +254,6 @@ export default function RepositoryModal({ isOpen, onClose, fullName }: Repositor
                   </div>
                 </div>
 
-                {/* Languages */}
                 {details.languages.length > 0 && (
                   <div>
                     <h4 className="text-lg font-heading font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
@@ -296,7 +285,6 @@ export default function RepositoryModal({ isOpen, onClose, fullName }: Repositor
                   </div>
                 )}
 
-                {/* Contributors */}
                 {details.contributors.length > 0 && (
                   <div>
                     <h4 className="text-lg font-heading font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
@@ -331,7 +319,6 @@ export default function RepositoryModal({ isOpen, onClose, fullName }: Repositor
                   </div>
                 )}
 
-                {/* Topics */}
                 {details.repository.topics.length > 0 && (
                   <div>
                     <h4 className="text-lg font-heading font-semibold text-gray-900 dark:text-white mb-3">
@@ -350,7 +337,6 @@ export default function RepositoryModal({ isOpen, onClose, fullName }: Repositor
                   </div>
                 )}
 
-                {/* Repository Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200 dark:border-gray-800">
                   <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                     <Calendar className="w-4 h-4" />

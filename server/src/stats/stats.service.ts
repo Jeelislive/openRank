@@ -2,23 +2,20 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Project } from '../projects/project.entity';
+import { Visit } from './visit.entity';
 
 @Injectable()
 export class StatsService {
-  private visitCount: number = 0;
-
   constructor(
     @InjectRepository(Project)
     private projectsRepository: Repository<Project>,
-  ) {
-    // Initialize with a base count (can be loaded from database in production)
-    this.visitCount = 0;
-  }
+    @InjectRepository(Visit)
+    private visitRepository: Repository<Visit>,
+  ) {}
 
   async getStats() {
     const totalProjects = await this.projectsRepository.count();
     
-    // Calculate total commits (sum of forks as approximation)
     const result = await this.projectsRepository
       .createQueryBuilder('project')
       .select('SUM(project.forks)', 'totalCommits')
@@ -26,7 +23,6 @@ export class StatsService {
     
     const totalCommits = parseInt(result.totalCommits || '0');
     
-    // Calculate total contributors (sum of contributors)
     const contributorsResult = await this.projectsRepository
       .createQueryBuilder('project')
       .select('SUM(project.contributors)', 'totalContributors')
@@ -42,13 +38,27 @@ export class StatsService {
   }
 
   async trackVisit() {
-    // Increment visit count
-    this.visitCount++;
+    const visitRecord = await this.visitRepository.findOne({ where: {} });
+    
+    if (!visitRecord) {
+      const newRecord = this.visitRepository.create({ count: 1 });
+      await this.visitRepository.save(newRecord);
+    } else {
+      await this.visitRepository.increment({ id: visitRecord.id }, 'count', 1);
+    }
+    
     return { success: true };
   }
 
   async getUsersVisited() {
-    return { count: this.visitCount };
+    let visitRecord = await this.visitRepository.findOne({ where: {} });
+    
+    if (!visitRecord) {
+      visitRecord = this.visitRepository.create({ count: 0 });
+      await this.visitRepository.save(visitRecord);
+    }
+    
+    return { count: visitRecord.count };
   }
 }
 

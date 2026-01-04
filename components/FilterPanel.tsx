@@ -34,7 +34,6 @@ export default function FilterPanel({
 }: FilterPanelProps) {
   return (
     <>
-      {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -42,8 +41,6 @@ export default function FilterPanel({
         onClick={onClose}
         className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
       />
-
-      {/* Panel */}
       <motion.div
         initial={{ x: '100%' }}
         animate={{ x: 0 }}
@@ -52,7 +49,6 @@ export default function FilterPanel({
         className="fixed right-0 top-0 h-full w-full md:w-96 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 z-50 overflow-y-auto shadow-xl transition-colors"
       >
         <div className="p-6">
-          {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
               <SlidersHorizontal className="w-5 h-5 text-gray-700 dark:text-gray-300" />
@@ -65,8 +61,6 @@ export default function FilterPanel({
               <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
             </button>
           </div>
-
-          {/* Category Filter */}
           <div className="mb-8">
             <h3 className="text-xs font-heading font-semibold text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-wider">
               Category
@@ -87,8 +81,6 @@ export default function FilterPanel({
               ))}
             </div>
           </div>
-
-          {/* Language Filter */}
           <div className="mb-8">
             <h3 className="text-xs font-heading font-semibold text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-wider">
               Language
@@ -109,8 +101,6 @@ export default function FilterPanel({
               ))}
             </div>
           </div>
-
-          {/* Sort By */}
           <div className="mb-8">
             <h3 className="text-xs font-heading font-semibold text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-wider">
               Sort By
@@ -131,8 +121,6 @@ export default function FilterPanel({
               ))}
             </div>
           </div>
-
-          {/* Min Stars */}
           <div className="mb-8">
             <h3 className="text-xs font-heading font-semibold text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-wider">
               Minimum Stars
@@ -156,8 +144,6 @@ export default function FilterPanel({
               </div>
             </div>
           </div>
-
-          {/* Reset Button */}
           <button
             onClick={() => {
               onCategoryChange('All')

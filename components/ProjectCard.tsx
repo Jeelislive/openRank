@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Star, GitFork, Calendar, Users, Eye } from 'lucide-react'
+import { Star, GitFork, Calendar, Users } from 'lucide-react'
 
 interface Project {
   id: number
@@ -30,12 +30,9 @@ export default function ProjectCard({ project, onCardClick }: ProjectCardProps) 
     if (project.fullName && onCardClick) {
       onCardClick(project.fullName)
     } else if (project.githubUrl) {
-      // Fallback to opening GitHub if no modal handler
       window.open(project.githubUrl, '_blank', 'noopener,noreferrer')
     }
   }
-
-  // Get badge styling based on activity level
   const getActivityBadgeStyles = (status: string) => {
     switch (status) {
       case 'Most Active':
@@ -78,9 +75,7 @@ export default function ProjectCard({ project, onCardClick }: ProjectCardProps) 
       className="group relative border border-gray-200 dark:border-gray-800 rounded-lg p-4 card-hover cursor-pointer bg-white dark:bg-[#1a1a1f] hover:border-gray-300 dark:hover:border-gray-700 transition-colors"
     >
       <div className="flex items-start gap-4">
-        {/* Left Section - Main Content */}
         <div className="flex-1 min-w-0">
-          {/* Header with Badge and Rank */}
           <div className="flex items-start justify-between mb-2">
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <div className={`flex items-center gap-1.5 px-2 py-0.5 ${badgeStyles.bg} rounded border ${badgeStyles.border} flex-shrink-0`}>
@@ -95,13 +90,9 @@ export default function ProjectCard({ project, onCardClick }: ProjectCardProps) 
               #{project.rank}
             </span>
           </div>
-
-          {/* Description */}
           <p className="text-sm font-body text-gray-600 dark:text-gray-400 line-clamp-1 mb-3">
             {project.description}
           </p>
-
-          {/* Tags and Category */}
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             {project.tags.slice(0, 3).map((tag, index) => (
               <span
@@ -117,8 +108,6 @@ export default function ProjectCard({ project, onCardClick }: ProjectCardProps) 
               </span>
             )}
           </div>
-
-          {/* Stats Row */}
           <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-gray-400 font-body">
             <div className="flex items-center gap-1">
               <Star className="w-3.5 h-3.5" />

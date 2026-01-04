@@ -55,7 +55,9 @@ export default function StatsSection() {
         <div className="text-3xl md:text-4xl font-heading font-bold text-gray-900 dark:text-white mb-1">
           {loading ? '...' : formatNumber(usersVisited)}
         </div>
-        <div className="text-sm font-body text-gray-600 dark:text-gray-400">Users Visited</div>
+        <div className="text-sm font-body text-gray-600 dark:text-gray-400 text-center max-w-xs md:max-w-sm">
+          No. of people who already found their first contribution
+        </div>
       </motion.div>
     </motion.div>
   )

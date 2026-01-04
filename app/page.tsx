@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Filter, X, ArrowRight, Github, Twitter, MessageCircle, ChevronUp, Loader2, Sparkles, Lock, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, Filter, X, Github, Twitter, MessageCircle, ChevronUp, Loader2, Sparkles, Lock, ChevronLeft, ChevronRight } from 'lucide-react'
 import ProjectCard from '@/components/ProjectCard'
 import FilterPanel from '@/components/FilterPanel'
 import StatsSection from '@/components/StatsSection'
@@ -19,13 +19,10 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [selectedLanguage, setSelectedLanguage] = useState('All')
   const [sortBy, setSortBy] = useState('Rank')
-  const [activityFilter, setActivityFilter] = useState('All')
   const [minStars, setMinStars] = useState(0)
   const [showScrollTop, setShowScrollTop] = useState(false)
   
-  // Data states
   const [projects, setProjects] = useState<Project[]>([])
-  // Use static categories and languages (GitHub search doesn't need DB categories)
   const categories = ['All', 'Frontend', 'Backend', 'AI/ML', 'GameDev', 'Systems', 'Mobile', 'DevOps', 'Other']
   const languages = ['All', 'JavaScript', 'TypeScript', 'Python', 'Java', 'Go', 'Rust', 'C++', 'C', 'C#', 'PHP', 'Ruby', 'Swift', 'Kotlin', 'Dart']
   const [loading, setLoading] = useState(false)
@@ -39,30 +36,19 @@ export default function Home() {
   const [totalPages, setTotalPages] = useState(1)
   const itemsPerPage = 10
 
-  // Animated placeholder
   const animatedPlaceholder = useAnimatedPlaceholder()
-
-  // Track if user has generated a search
   const [hasSearched, setHasSearched] = useState(false)
   const [activeSearchQuery, setActiveSearchQuery] = useState('')
-
-  // Handle Generate button - extract keywords and trigger search
   const handleGenerate = async () => {
     if (!searchQuery.trim() || generating) return
 
     try {
       setGenerating(true)
-      setError(null)
-      
-      // Extract keywords from natural language query (use in background, don't show)
-      const result = await extractKeywords(searchQuery)
-      
-      // Keep original query in search bar, use extracted keywords for API search
-      const finalQuery = result.searchQuery || searchQuery
-      setActiveSearchQuery(finalQuery) // Use extracted keywords for search
-      setHasSearched(true)
-      
-      // Trigger search immediately with extracted keywords
+        setError(null)
+        const result = await extractKeywords(searchQuery)
+        const finalQuery = result.searchQuery || searchQuery
+        setActiveSearchQuery(finalQuery)
+        setHasSearched(true)
       try {
         setLoading(true)
         const filters: Filters = {
@@ -81,14 +67,11 @@ export default function Home() {
       } finally {
         setLoading(false)
       }
-    } catch (err) {
-      console.error('Error extracting keywords:', err)
-      setError('Failed to extract keywords. Using original query.')
-      // Fallback: use original query and trigger search
-      setActiveSearchQuery(searchQuery)
-      setHasSearched(true)
-      
-      // Trigger search with original query
+        } catch (err) {
+          console.error('Error extracting keywords:', err)
+          setError('Failed to extract keywords. Using original query.')
+          setActiveSearchQuery(searchQuery)
+          setHasSearched(true)
       try {
         setLoading(true)
         const filters: Filters = {
@@ -112,9 +95,7 @@ export default function Home() {
     }
   }
 
-  // Fetch projects when filters change (only if user has already generated a search and on Home tab)
   useEffect(() => {
-    // Only refetch if user has already generated a search and we're on Home tab
     if (activeTab !== 'Home' || !hasSearched || !activeSearchQuery) {
       return
     }
@@ -144,7 +125,6 @@ export default function Home() {
     fetchProjects()
   }, [selectedCategory, selectedLanguage, sortBy, minStars, activeSearchQuery, hasSearched, activeTab])
 
-  // Fetch newly added projects when tab changes to "Newly Added"
   useEffect(() => {
     if (activeTab === 'Newly Added') {
       const fetchNewlyAdded = async () => {
@@ -164,7 +144,6 @@ export default function Home() {
       }
       fetchNewlyAdded()
     } else if (activeTab === 'Home') {
-      // Clear projects when switching to Home if no search
       if (!hasSearched) {
         setProjects([])
         setTotalPages(1)
@@ -172,7 +151,6 @@ export default function Home() {
     }
   }, [activeTab, currentPage])
 
-  // Show scroll to top button
   useEffect(() => {
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 500)
@@ -181,7 +159,6 @@ export default function Home() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Keyboard shortcut for filters
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -194,7 +171,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-white dark:bg-[#0a0a0f] transition-colors">
-      {/* Navigation */}
       <nav className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0a0a0f] sticky top-0 z-50 transition-colors">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -207,7 +183,6 @@ export default function Home() {
                 >
                   Explorer
                   <Lock className="w-3 h-3 text-gray-500 dark:text-gray-500" />
-                  {/* Tooltip */}
                   <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs font-body bg-gray-900 dark:bg-gray-800 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
                     Coming soon
                   </span>
@@ -218,7 +193,6 @@ export default function Home() {
                 >
                   Trending
                   <Lock className="w-3 h-3 text-gray-500 dark:text-gray-500" />
-                  {/* Tooltip */}
                   <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs font-body bg-gray-900 dark:bg-gray-800 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
                     Coming soon
                   </span>
@@ -235,7 +209,6 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* Hero Section */}
       <section className="relative py-20 md:py-32">
         <div className="container mx-auto px-4">
           <motion.div
@@ -255,7 +228,6 @@ export default function Home() {
               <span className="text-gray-500 dark:text-gray-500">No login, no friction, just pure coding.</span>
             </p>
 
-            {/* Search Bar */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -273,13 +245,12 @@ export default function Home() {
                       onChange={(e) => {
                         setSearchQuery(e.target.value)
                       }}
-                      onFocus={() => setIsFocused(true)}
-                      onBlur={() => {
-                        // Only hide placeholder if there's no text
-                        if (!searchQuery.trim()) {
-                          setIsFocused(false)
-                        }
-                      }}
+                          onFocus={() => setIsFocused(true)}
+                          onBlur={() => {
+                            if (!searchQuery.trim()) {
+                              setIsFocused(false)
+                            }
+                          }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && searchQuery.trim()) {
                           handleGenerate()
@@ -287,7 +258,6 @@ export default function Home() {
                       }}
                       className="w-full bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none font-body"
                     />
-                    {/* Animated placeholder overlay */}
                     {!isFocused && !searchQuery && (
                       <div className="absolute left-0 top-0 pointer-events-none flex items-center">
                         <span className="text-gray-600 dark:text-gray-300 font-signature text-lg font-medium">
@@ -326,13 +296,11 @@ export default function Home() {
               </div>
             </motion.div>
 
-            {/* Quick Stats */}
             <StatsSection />
           </motion.div>
         </div>
       </section>
 
-      {/* Filter Panel */}
       <AnimatePresence>
         {showFilters && (
           <FilterPanel
@@ -353,7 +321,6 @@ export default function Home() {
       </AnimatePresence>
 
 
-      {/* Filter Tabs */}
       <section className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0a0a0f] sticky top-[73px] z-40 transition-colors">
         <div className="container mx-auto px-4">
           <div className="flex items-center gap-6">
@@ -409,9 +376,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Projects Section */}
       <section className="container mx-auto px-4 py-12">
-        {/* Filter Tags */}
         <div className="flex flex-wrap items-center gap-2 mb-8">
           {selectedCategory !== 'All' && (
             <motion.div
@@ -451,7 +416,6 @@ export default function Home() {
           )}
         </div>
 
-        {/* Loading State - Show for Newly Added section */}
         {loading && activeTab === 'Newly Added' && (
           <div className="flex flex-col items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-gray-400 dark:text-gray-600 mb-4" />
@@ -459,7 +423,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* Projects Grid */}
         {!loading && (
           <div className="grid grid-cols-1 gap-6 relative">
             <AnimatePresence mode="wait">
@@ -485,7 +448,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* Loading State - Show for Home section */}
         {loading && activeTab === 'Home' && (
           <div className="flex flex-col items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-gray-400 dark:text-gray-600 mb-4" />
@@ -507,7 +469,6 @@ export default function Home() {
           </motion.div>
         )}
 
-        {/* Pagination - Only show for Newly Added tab */}
         {activeTab === 'Newly Added' && totalPages > 1 && !loading && (
           <div className="flex items-center justify-center gap-4 mt-12">
             <button
@@ -562,7 +523,6 @@ export default function Home() {
 
       </section>
 
-      {/* Footer */}
       <footer className="border-t border-gray-200 dark:border-gray-800 mt-20 bg-gray-50 dark:bg-[#0f0f1a] transition-colors">
         <div className="container mx-auto px-4 py-12">
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
@@ -606,7 +566,6 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* Scroll to Top Button */}
       <AnimatePresence>
         {showScrollTop && (
           <motion.button
@@ -624,7 +583,6 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* Repository Modal */}
       <RepositoryModal
         isOpen={isModalOpen}
         onClose={() => {
