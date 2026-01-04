@@ -31,4 +31,15 @@ export class ProjectsController {
   async getRepositoryDetails(@Param('owner') owner: string, @Param('repo') repo: string) {
     return this.projectsService.getRepositoryDetails(owner, repo);
   }
+
+  @Get('newly-added')
+  async getNewlyAdded(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.projectsService.getNewlyAdded(
+      page ? parseInt(page) : 1,
+      limit ? parseInt(limit) : 10,
+    );
+  }
 }

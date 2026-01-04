@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Filter, X, ArrowRight, Github, Twitter, MessageCircle, ChevronUp, Loader2, Sparkles } from 'lucide-react'
+import { Search, Filter, X, ArrowRight, Github, Twitter, MessageCircle, ChevronUp, Loader2, Sparkles, Lock, ChevronLeft, ChevronRight } from 'lucide-react'
 import ProjectCard from '@/components/ProjectCard'
 import FilterPanel from '@/components/FilterPanel'
 import StatsSection from '@/components/StatsSection'
 import ThemeToggle from '@/components/ThemeToggle'
 import RepositoryModal from '@/components/RepositoryModal'
-import { getProjects, extractKeywords, type Project, type Filters } from '@/lib/api'
+import { getProjects, extractKeywords, getNewlyAdded, type Project, type Filters } from '@/lib/api'
 import { useAnimatedPlaceholder } from '@/hooks/useAnimatedPlaceholder'
 
 const sortOptions = ['Rank', 'Stars', 'Forks', 'Recently Updated', 'Most Active']
@@ -34,6 +34,10 @@ export default function Home() {
   const [isFocused, setIsFocused] = useState(false)
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<'Home' | 'Newly Added' | 'AI Pick'>('Home')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const itemsPerPage = 10
 
   // Animated placeholder
   const animatedPlaceholder = useAnimatedPlaceholder()
@@ -108,10 +112,10 @@ export default function Home() {
     }
   }
 
-  // Fetch projects when filters change (only if user has already generated a search)
+  // Fetch projects when filters change (only if user has already generated a search and on Home tab)
   useEffect(() => {
-    // Only refetch if user has already generated a search
-    if (!hasSearched || !activeSearchQuery) {
+    // Only refetch if user has already generated a search and we're on Home tab
+    if (activeTab !== 'Home' || !hasSearched || !activeSearchQuery) {
       return
     }
 
@@ -138,7 +142,35 @@ export default function Home() {
     }
 
     fetchProjects()
-  }, [selectedCategory, selectedLanguage, sortBy, minStars, activeSearchQuery, hasSearched])
+  }, [selectedCategory, selectedLanguage, sortBy, minStars, activeSearchQuery, hasSearched, activeTab])
+
+  // Fetch newly added projects when tab changes to "Newly Added"
+  useEffect(() => {
+    if (activeTab === 'Newly Added') {
+      const fetchNewlyAdded = async () => {
+        try {
+          setLoading(true)
+          setError(null)
+          const response = await getNewlyAdded(currentPage, itemsPerPage)
+          setProjects(response.projects)
+          setTotalPages(response.totalPages)
+        } catch (err) {
+          console.error('Error fetching newly added projects:', err)
+          setError('Failed to load newly added projects')
+          setProjects([])
+        } finally {
+          setLoading(false)
+        }
+      }
+      fetchNewlyAdded()
+    } else if (activeTab === 'Home') {
+      // Clear projects when switching to Home if no search
+      if (!hasSearched) {
+        setProjects([])
+        setTotalPages(1)
+      }
+    }
+  }, [activeTab, currentPage])
 
   // Show scroll to top button
   useEffect(() => {
@@ -169,10 +201,28 @@ export default function Home() {
             <div className="flex items-center gap-8">
               <h1 className="text-xl font-heading font-semibold text-gray-900 dark:text-white">OpenRank</h1>
               <div className="hidden md:flex items-center gap-6">
-                <button className="text-sm font-body text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Explorer</button>
-                <button className="text-sm font-body text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Trending</button>
-                <button className="text-sm font-body text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">AI Match</button>
-                <button className="text-sm font-body text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">GitHub</button>
+                <button 
+                  className="text-sm font-body text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex items-center gap-1.5 relative group cursor-not-allowed"
+                  disabled
+                >
+                  Explorer
+                  <Lock className="w-3 h-3 text-gray-500 dark:text-gray-500" />
+                  {/* Tooltip */}
+                  <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs font-body bg-gray-900 dark:bg-gray-800 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                    Coming soon
+                  </span>
+                </button>
+                <button 
+                  className="text-sm font-body text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex items-center gap-1.5 relative group cursor-not-allowed"
+                  disabled
+                >
+                  Trending
+                  <Lock className="w-3 h-3 text-gray-500 dark:text-gray-500" />
+                  {/* Tooltip */}
+                  <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs font-body bg-gray-900 dark:bg-gray-800 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                    Coming soon
+                  </span>
+                </button>
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -307,14 +357,42 @@ export default function Home() {
       <section className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0a0a0f] sticky top-[73px] z-40 transition-colors">
         <div className="container mx-auto px-4">
           <div className="flex items-center gap-6">
-            <button className="py-4 text-sm font-heading font-medium text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-white">
-              Trending
+            <button 
+              onClick={() => {
+                setActiveTab('Home')
+                setCurrentPage(1)
+              }}
+              className={`py-4 text-sm font-heading font-medium transition-colors ${
+                activeTab === 'Home'
+                  ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-white'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              Home
             </button>
-            <button className="py-4 text-sm font-heading font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+            <button 
+              onClick={() => {
+                setActiveTab('Newly Added')
+                setCurrentPage(1)
+              }}
+              className={`py-4 text-sm font-heading font-medium transition-colors ${
+                activeTab === 'Newly Added'
+                  ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-white'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
               Newly Added
             </button>
-            <button className="py-4 text-sm font-heading font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+            <button 
+              className="py-4 text-sm font-heading font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex items-center gap-2 relative group cursor-not-allowed"
+              disabled
+            >
               AI Pick
+              <Lock className="w-3.5 h-3.5 text-gray-500 dark:text-gray-500" />
+              {/* Tooltip */}
+              <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs font-body bg-gray-900 dark:bg-gray-800 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                Coming soon
+              </span>
             </button>
           </div>
         </div>
@@ -362,31 +440,49 @@ export default function Home() {
           )}
         </div>
 
-        {/* Projects Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative">
-          <AnimatePresence mode="wait">
-            {projects?.map((project, index) => (
-              <motion.div
-                key={project.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.3, delay: index * 0.1 }}
-                className="h-full"
-              >
-                <ProjectCard 
-                  project={project} 
-                  onCardClick={(fullName) => {
-                    setSelectedRepo(fullName)
-                    setIsModalOpen(true)
-                  }}
-                />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
+        {/* Loading State - Show for Newly Added section */}
+        {loading && activeTab === 'Newly Added' && (
+          <div className="flex flex-col items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-gray-400 dark:text-gray-600 mb-4" />
+            <p className="text-sm font-body text-gray-500 dark:text-gray-400">Loading newly added projects...</p>
+          </div>
+        )}
 
-        {projects.length === 0 && (
+        {/* Projects Grid */}
+        {!loading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative">
+            <AnimatePresence mode="wait">
+              {projects?.map((project, index) => (
+                <motion.div
+                  key={project.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ duration: 0.3, delay: index * 0.1 }}
+                  className="h-full"
+                >
+                  <ProjectCard 
+                    project={project} 
+                    onCardClick={(fullName) => {
+                      setSelectedRepo(fullName)
+                      setIsModalOpen(true)
+                    }}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {/* Loading State - Show for Home section */}
+        {loading && activeTab === 'Home' && (
+          <div className="flex flex-col items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-gray-400 dark:text-gray-600 mb-4" />
+            <p className="text-sm font-body text-gray-500 dark:text-gray-400">Searching projects...</p>
+          </div>
+        )}
+
+        {projects.length === 0 && !loading && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -394,9 +490,65 @@ export default function Home() {
           >
             <Search className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-4" />
             <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">No projects found</h3>
-            <p className="text-gray-500 dark:text-gray-400">Try adjusting your filters or search query</p>
+            <p className="text-gray-500 dark:text-gray-400">
+              {activeTab === 'Newly Added' ? 'No newly added projects found' : 'Try adjusting your filters or search query'}
+            </p>
           </motion.div>
         )}
+
+        {/* Pagination - Only show for Newly Added tab */}
+        {activeTab === 'Newly Added' && totalPages > 1 && !loading && (
+          <div className="flex items-center justify-center gap-4 mt-12">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1 || loading}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-body text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Previous
+            </button>
+            <div className="flex items-center gap-2">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    disabled={loading}
+                    className={`px-3 py-2 text-sm font-body rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      currentPage === pageNum
+                        ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                        : 'text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+            <span className="text-sm font-body text-gray-600 dark:text-gray-400">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages || loading}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-body text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
       </section>
 
       {/* Footer */}
@@ -408,13 +560,31 @@ export default function Home() {
               <p className="text-gray-600 dark:text-gray-400 text-sm font-body">Built for the open source community.</p>
             </div>
             <div className="flex gap-6">
-              <a href="#" className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+              <a 
+                href="https://github.com/Jeelislive" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                aria-label="GitHub"
+              >
                 <Github className="w-5 h-5" />
               </a>
-              <a href="#" className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+              <a 
+                href="https://x.com/rj_404_" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                aria-label="Twitter/X"
+              >
                 <Twitter className="w-5 h-5" />
               </a>
-              <a href="#" className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+              <a 
+                href="https://medium.com/@jeelrupareliya255" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                aria-label="Medium"
+              >
                 <MessageCircle className="w-5 h-5" />
               </a>
             </div>

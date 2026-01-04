@@ -445,6 +445,111 @@ export class ProjectsService {
     return result.map((r) => r.language).filter(Boolean);
   }
 
+  async getNewlyAdded(page: number = 1, limit: number = 10) {
+    try {
+      // Search GitHub for recently created repositories
+      // GitHub API doesn't support 'created' sort, so we use 'updated' and sort by created_at in code
+      const githubResponse = await this.githubService.searchRepositories(
+        'is:public',
+        undefined,
+        'updated', // GitHub API sort (will re-sort by created_at below)
+        'desc',
+        1000, // Fetch many to get diverse results
+        undefined,
+      );
+
+      // Map GitHub repositories to our Project format
+      const projects = githubResponse.items.map((repo, index) => {
+        const rank = index + 1;
+
+        // Determine category based on language or topics
+        let category = 'Other';
+        if (repo.language) {
+          const lang = repo.language.toLowerCase();
+          if (['javascript', 'typescript', 'react', 'vue', 'angular'].some(l => lang.includes(l))) {
+            category = 'Frontend';
+          } else if (['python', 'java', 'go', 'rust', 'c++', 'c#', 'php', 'ruby'].some(l => lang.includes(l))) {
+            category = 'Backend';
+          } else if (['swift', 'kotlin', 'dart', 'objective-c'].some(l => lang.includes(l))) {
+            category = 'Mobile';
+          } else if (['docker', 'kubernetes', 'terraform', 'ansible'].some(l => lang.includes(l))) {
+            category = 'DevOps';
+          } else if (['python', 'tensorflow', 'pytorch', 'machine-learning', 'ai', 'ml'].some(l => 
+            lang.includes(l) || repo.topics?.some(t => t.toLowerCase().includes(l))
+          )) {
+            category = 'AI/ML';
+          } else if (['game', 'unity', 'unreal', 'gamedev'].some(l => 
+            repo.topics?.some(t => t.toLowerCase().includes(l))
+          )) {
+            category = 'GameDev';
+          } else if (['os', 'kernel', 'system', 'operating-system'].some(l => 
+            repo.topics?.some(t => t.toLowerCase().includes(l))
+          )) {
+            category = 'Systems';
+          }
+        }
+
+        const tags = repo.topics && repo.topics.length > 0 
+          ? repo.topics.slice(0, 5)
+          : repo.language 
+            ? [repo.language]
+            : [];
+
+        const lastUpdated = this.formatLastUpdated(repo.updated_at);
+        const activityLevel = this.getActivityLevel(repo.updated_at);
+
+        return {
+          id: repo.id,
+          name: repo.name,
+          description: repo.description || 'No description available',
+          rank,
+          tags,
+          stars: repo.stargazers_count,
+          forks: repo.forks_count,
+          status: activityLevel,
+          language: repo.language || 'Unknown',
+          category,
+          lastUpdated,
+          contributors: 0,
+          githubUrl: repo.html_url,
+          fullName: repo.full_name,
+          createdAt: (repo as any).created_at || repo.updated_at, // Use created_at if available, fallback to updated_at
+        } as Project & { createdAt: string };
+      });
+
+      // Sort by creation date (newest first)
+      projects.sort((a, b) => {
+        const dateA = new Date((a as any).createdAt).getTime();
+        const dateB = new Date((b as any).createdAt).getTime();
+        return dateB - dateA; // Newest first
+      });
+
+      // Calculate pagination
+      const total = projects.length;
+      const totalPages = Math.ceil(total / limit);
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedProjects = projects.slice(startIndex, endIndex);
+
+      return {
+        projects: paginatedProjects,
+        total,
+        page,
+        limit,
+        totalPages,
+      };
+    } catch (error) {
+      console.error('Error fetching newly added projects:', error);
+      return {
+        projects: [],
+        total: 0,
+        page: 1,
+        limit,
+        totalPages: 0,
+      };
+    }
+  }
+
   async getRepositoryDetails(owner: string, repo: string) {
     try {
       // Fetch all details in parallel

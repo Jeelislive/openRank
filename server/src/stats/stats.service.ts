@@ -5,10 +5,15 @@ import { Project } from '../projects/project.entity';
 
 @Injectable()
 export class StatsService {
+  private visitCount: number = 0;
+
   constructor(
     @InjectRepository(Project)
     private projectsRepository: Repository<Project>,
-  ) {}
+  ) {
+    // Initialize with a base count (can be loaded from database in production)
+    this.visitCount = 0;
+  }
 
   async getStats() {
     const totalProjects = await this.projectsRepository.count();
@@ -34,6 +39,16 @@ export class StatsService {
       totalCommits,
       totalContributors,
     };
+  }
+
+  async trackVisit() {
+    // Increment visit count
+    this.visitCount++;
+    return { success: true };
+  }
+
+  async getUsersVisited() {
+    return { count: this.visitCount };
   }
 }
 

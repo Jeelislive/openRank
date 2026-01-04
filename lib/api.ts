@@ -84,6 +84,35 @@ export async function getStats(): Promise<StatsResponse> {
   return response.json()
 }
 
+export async function trackVisit(): Promise<void> {
+  try {
+    await fetch(`${API_BASE_URL}/api/stats/visit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+  } catch (error) {
+    // Silently fail - don't block UI if tracking fails
+    console.error('Failed to track visit:', error)
+  }
+}
+
+export async function getUsersVisited(): Promise<{ count: number }> {
+  const response = await fetch(`${API_BASE_URL}/api/stats/users-visited`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch users visited count')
+  }
+
+  return response.json()
+}
+
 export async function getCategories(): Promise<string[]> {
   const response = await fetch(`${API_BASE_URL}/api/categories`, {
     method: 'GET',
@@ -130,6 +159,29 @@ export async function extractKeywords(query: string): Promise<KeywordExtractionR
 
   if (!response.ok) {
     throw new Error('Failed to extract keywords')
+  }
+
+  return response.json()
+}
+
+export interface NewlyAddedResponse {
+  projects: Project[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+export async function getNewlyAdded(page: number = 1, limit: number = 10): Promise<NewlyAddedResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/projects/newly-added?page=${page}&limit=${limit}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch newly added projects')
   }
 
   return response.json()

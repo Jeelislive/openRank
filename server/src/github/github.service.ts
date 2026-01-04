@@ -10,6 +10,7 @@ interface GitHubRepo {
   stargazers_count: number;
   forks_count: number;
   language: string;
+  created_at: string;
   updated_at: string;
   open_issues_count: number;
   topics: string[];
