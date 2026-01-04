@@ -218,12 +218,12 @@ export default function Home() {
             className="max-w-4xl mx-auto text-center"
           >
             <h1 className="text-5xl md:text-7xl font-heading font-bold mb-6 text-gray-900 dark:text-white leading-tight">
-              Find your next<br />
-              <span className="text-gray-600 dark:text-gray-400">Open Source</span><br />
-              contribution.
+              Open Source Project Finder<br />
+              <span className="text-gray-600 dark:text-gray-400">Find Your Next</span><br />
+              Open Source Contribution
             </h1>
             <p className="text-lg md:text-xl font-body text-gray-600 dark:text-gray-400 mb-12 max-w-2xl mx-auto">
-              OpenRank helps you discover high-impact projects tailored to your skills.
+              Discover high-impact open source projects tailored to your skills. The best open source project finder to discover and contribute to open source repositories.
               <br />
               <span className="text-gray-500 dark:text-gray-500">No login, no friction, just pure coding.</span>
             </p>
