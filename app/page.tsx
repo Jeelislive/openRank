@@ -34,7 +34,7 @@ export default function Home() {
   const [isFocused, setIsFocused] = useState(false)
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<'Home' | 'Newly Added' | 'AI Pick'>('Home')
+  const [activeTab, setActiveTab] = useState<'Home' | 'Newly Added' | 'AI Pick' | 'Ranking of Global Developers'>('Home')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const itemsPerPage = 10
@@ -227,7 +227,7 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-4">
               <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
-                New: AI-Powered Project Matching
+                Find your first Contribution
               </div>
               <ThemeToggle />
             </div>
@@ -394,6 +394,17 @@ export default function Home() {
                 Coming soon
               </span>
             </button>
+            <button 
+              className="py-4 text-sm font-heading font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex items-center gap-2 relative group cursor-not-allowed"
+              disabled
+            >
+              Ranking of Global Developers
+              <Lock className="w-3.5 h-3.5 text-gray-500 dark:text-gray-500" />
+              {/* Tooltip */}
+              <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs font-body bg-gray-900 dark:bg-gray-800 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                Coming soon
+              </span>
+            </button>
           </div>
         </div>
       </section>
@@ -450,7 +461,7 @@ export default function Home() {
 
         {/* Projects Grid */}
         {!loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative">
+          <div className="grid grid-cols-1 gap-6 relative">
             <AnimatePresence mode="wait">
               {projects?.map((project, index) => (
                 <motion.div
