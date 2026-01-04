@@ -91,14 +91,13 @@ export class ProjectsService {
       const sortBy = filters.sortBy || 'Stars';
       const order = sortBy === 'Stars' || sortBy === 'Forks' ? 'desc' : 'desc';
       
-      // Fetch more results to get diverse activity levels
-      // Popular repos are often recently updated, so we need more results to find variety
-      const githubResponse = await this.githubService.searchRepositories(
+      // First search attempt
+      let githubResponse = await this.githubService.searchRepositories(
         filters.search!,
         filters.language !== 'All' ? filters.language : undefined,
         sortBy,
         order,
-        200, // Increased to get more diverse activity levels
+        300, // Increased further to ensure we capture all relevant repos
         filters.minStars, // Pass minStars to GitHub API
       );
 
@@ -148,14 +147,6 @@ export class ProjectsService {
           // Determine activity level based on last updated date
           // Use the raw updated_at date from GitHub API (ISO 8601 format)
           const activityLevel = this.getActivityLevel(repo.updated_at);
-          
-          // Temporary debug: Log activity distribution (remove after verification)
-          if (index < 5) {
-            const date = new Date(repo.updated_at);
-            const now = new Date();
-            const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-            console.log(`[${index}] ${repo.name}: updated_at=${repo.updated_at}, diffDays=${diffDays}, activity=${activityLevel}`);
-          }
 
           return {
             id: repo.id,
@@ -184,6 +175,145 @@ export class ProjectsService {
       // Apply additional minStars filter as safety check (though GitHub should have filtered)
       if (filters.minStars && filters.minStars > 0) {
         filteredProjects = filteredProjects.filter(p => p.stars >= filters.minStars!);
+      }
+
+      // If we got less than 6 results, try a broader search with "github" appended
+      if (filteredProjects.length < 6 && filters.search) {
+        try {
+          // Extract important words from the query
+          const originalQuery = filters.search;
+          const keywordResult = this.extractKeywordsFromQuery(originalQuery);
+          
+          // Build enhanced search query: only important words + "github"
+          // Example: "quant research" + "github" = "quant research github"
+          let importantWords = '';
+          if (keywordResult.keywords.length > 0) {
+            importantWords = keywordResult.keywords.join(' ');
+          } else if (keywordResult.searchQuery) {
+            importantWords = keywordResult.searchQuery;
+          } else {
+            // Fallback: extract meaningful words from original query
+            const words = originalQuery
+              .toLowerCase()
+              .replace(/[^\w\s]/g, ' ')
+              .split(/\s+/)
+              .filter(word => word.length > 3 && !['want', 'work', 'project', 'where', 'used', 'use'].includes(word));
+            importantWords = words.join(' ');
+          }
+          
+          // Try multiple search variations to get better results
+          // 1. Important words + "github"
+          // 2. Important words only (without "github")
+          const searchVariations = [];
+          
+          if (importantWords) {
+            searchVariations.push(`${importantWords} github`.trim());
+            searchVariations.push(importantWords.trim()); // Try without github too
+          }
+          
+          // Try each variation and use the one with most results
+          let bestResponse = null;
+          let bestCount = filteredProjects.length;
+          
+          for (const searchQuery of searchVariations) {
+            try {
+              const enhancedResponse = await this.githubService.searchRepositories(
+                searchQuery,
+                filters.language !== 'All' ? filters.language : undefined,
+                sortBy,
+                order,
+                300,
+                filters.minStars,
+              );
+              
+              if (enhancedResponse.items.length > bestCount) {
+                bestResponse = enhancedResponse;
+                bestCount = enhancedResponse.items.length;
+              }
+            } catch (error) {
+              // Continue with next variation
+            }
+          }
+          
+          // Use the best response if we found one
+          if (bestResponse && bestResponse.items.length > filteredProjects.length) {
+            const enhancedResponse = bestResponse;
+
+            // Map enhanced results
+            const enhancedProjects = enhancedResponse.items.map((repo, index) => {
+              const rank = index + 1;
+
+              let category = 'Other';
+              if (repo.language) {
+                const lang = repo.language.toLowerCase();
+                if (['javascript', 'typescript', 'react', 'vue', 'angular'].some(l => lang.includes(l))) {
+                  category = 'Frontend';
+                } else if (['python', 'java', 'go', 'rust', 'c++', 'c#', 'php', 'ruby'].some(l => lang.includes(l))) {
+                  category = 'Backend';
+                } else if (['swift', 'kotlin', 'dart', 'objective-c'].some(l => lang.includes(l))) {
+                  category = 'Mobile';
+                } else if (['docker', 'kubernetes', 'terraform', 'ansible'].some(l => lang.includes(l))) {
+                  category = 'DevOps';
+                } else if (['python', 'tensorflow', 'pytorch', 'machine-learning', 'ai', 'ml'].some(l => 
+                  lang.includes(l) || repo.topics?.some(t => t.toLowerCase().includes(l))
+                )) {
+                  category = 'AI/ML';
+                } else if (['game', 'unity', 'unreal', 'gamedev'].some(l => 
+                  repo.topics?.some(t => t.toLowerCase().includes(l))
+                )) {
+                  category = 'GameDev';
+                } else if (['os', 'kernel', 'system', 'operating-system'].some(l => 
+                  repo.topics?.some(t => t.toLowerCase().includes(l))
+                )) {
+                  category = 'Systems';
+                }
+              }
+
+              const tags = repo.topics && repo.topics.length > 0 
+                ? repo.topics.slice(0, 5)
+                : repo.language 
+                  ? [repo.language]
+                  : [];
+
+              const lastUpdated = this.formatLastUpdated(repo.updated_at);
+              const activityLevel = this.getActivityLevel(repo.updated_at);
+
+              return {
+                id: repo.id,
+                name: repo.name,
+                description: repo.description || 'No description available',
+                rank,
+                tags,
+                stars: repo.stargazers_count,
+                forks: repo.forks_count,
+                status: activityLevel,
+                language: repo.language || 'Unknown',
+                category,
+                lastUpdated,
+                contributors: 0,
+                githubUrl: repo.html_url,
+                fullName: repo.full_name,
+              } as Project;
+            });
+
+            // Apply filters to enhanced results
+            let enhancedFiltered = enhancedProjects;
+            if (filters.category && filters.category !== 'All') {
+              enhancedFiltered = enhancedProjects.filter(p => p.category === filters.category);
+            }
+            if (filters.minStars && filters.minStars > 0) {
+              enhancedFiltered = enhancedFiltered.filter(p => p.stars >= filters.minStars!);
+            }
+
+            // Use enhanced results if we got more
+            if (enhancedFiltered.length > filteredProjects.length) {
+              filteredProjects = enhancedFiltered;
+            }
+          }
+        } catch (error) {
+          console.error('Enhanced search failed, using original results:', error);
+          // Continue with original results if enhanced search fails
+        }
       }
 
       // Limit to 30 results for display (but we fetched more to get diverse activity levels)
@@ -394,7 +524,7 @@ export class ProjectsService {
       'project', 'projects', 'code', 'coding', 'develop', 'development', 'developer', 'developing'
     ]);
 
-    // Extract keywords: tech terms, frameworks, libraries, tools
+    // Extract keywords: tech terms, frameworks, libraries, tools, and domain-specific terms
     const techKeywords = [
       // Frameworks & Libraries
       'nestjs', 'express', 'react', 'vue', 'angular', 'nextjs', 'nuxt', 'svelte', 'remix',
@@ -415,7 +545,19 @@ export class ProjectsService {
       'oauth', 'jwt', 'oauth2', 'authentication', 'authorization', 'security', 'encryption',
       'machine learning', 'ml', 'ai', 'deep learning', 'neural network', 'tensorflow', 'pytorch',
       'blockchain', 'web3', 'ethereum', 'solidity', 'smart contract',
-      'testing', 'jest', 'mocha', 'pytest', 'junit', 'cypress', 'selenium'
+      'testing', 'jest', 'mocha', 'pytest', 'junit', 'cypress', 'selenium',
+      // Domain-specific terms
+      'quant', 'quantitative', 'research', 'finance', 'trading', 'algorithmic', 'backtesting',
+      'data science', 'analytics', 'visualization', 'statistics', 'mathematics', 'math',
+      'cryptocurrency', 'crypto', 'bitcoin', 'defi', 'nft', 'game', 'gaming', 'engine',
+      'iot', 'embedded', 'robotics', 'automation', 'scraping', 'crawler', 'parser',
+      // Data Science & Research Tools
+      'jupyter', 'jupyter notebook', 'notebook', 'ipython', 'colab', 'google colab',
+      'pandas', 'numpy', 'scipy', 'matplotlib', 'seaborn', 'plotly', 'bokeh',
+      'scikit-learn', 'sklearn', 'xgboost', 'lightgbm', 'catboost',
+      'r', 'rstudio', 'shiny', 'rmarkdown',
+      'spark', 'hadoop', 'hive', 'kafka', 'flink', 'storm',
+      'tableau', 'powerbi', 'qlik', 'looker', 'metabase'
     ];
 
     // Convert query to lowercase for processing
@@ -444,17 +586,30 @@ export class ProjectsService {
     // Combine tech keywords and additional keywords, remove duplicates
     const allKeywords = [...new Set([...foundKeywords, ...additionalKeywords])];
 
-    // Build search query: combine keywords for better GitHub search
-    // GitHub search works better with specific tech terms
-    // If we found keywords, use them; otherwise use cleaned original query
+    // Build search query: use BOTH extracted keywords AND meaningful words from original query
+    // This ensures we don't lose any relevant terms
+    // For GitHub search, we want to be as inclusive as possible
     let searchQuery = '';
+    
+    // Always include meaningful words from the original query (length > 2)
+    const meaningfulWords = words.filter(w => w.length > 2);
+    
     if (allKeywords.length > 0) {
-      // Use extracted keywords for more precise search
-      searchQuery = allKeywords.join(' ');
+      // Combine extracted keywords with meaningful words
+      // This ensures we capture both tech terms and domain-specific terms
+      const combinedTerms = [...new Set([...allKeywords, ...meaningfulWords])];
+      searchQuery = combinedTerms.join(' ');
     } else {
-      // Fallback: clean the original query (remove stop words, keep meaningful terms)
-      const cleanedQuery = words.filter(w => w.length > 2).join(' ');
-      searchQuery = cleanedQuery || query;
+      // If no tech keywords found, use all meaningful words from original query
+      // This is important for domain-specific searches like "quant research"
+      searchQuery = meaningfulWords.length > 0 
+        ? meaningfulWords.join(' ') 
+        : query.trim(); // Last resort: use original query
+    }
+
+    // Ensure search query is not empty
+    if (!searchQuery.trim()) {
+      searchQuery = query.trim();
     }
 
     return {

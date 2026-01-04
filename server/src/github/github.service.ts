@@ -49,8 +49,19 @@ export class GitHubService {
   async searchRepositories(query: string, language?: string, sort: string = 'stars', order: string = 'desc', perPage: number = 30, minStars?: number): Promise<GitHubSearchResponse> {
     try {
       // Build search query - only open source repositories
+      // GitHub search works best when we search in name, description, topics, and README
       // If query is empty, search for all public repos (will be filtered by other params)
-      let searchQuery = query.trim().length > 0 ? `${query} is:public` : 'is:public';
+      
+      // Clean the query - remove extra spaces and ensure proper formatting
+      const cleanQuery = query.trim().replace(/\s+/g, ' ');
+      
+      // Build search query - GitHub searches in name, description, topics, and README by default
+      // We don't need to add "is:public" explicitly as we're searching public repos
+      // But we can add it for clarity and to ensure we only get public repos
+      let searchQuery = cleanQuery.length > 0 ? `${cleanQuery} is:public` : 'is:public';
+      
+      // For better results, we can also search in topics explicitly
+      // But GitHub already searches in topics by default, so we'll keep it simple
       
       if (language && language !== 'All') {
         searchQuery += ` language:${language}`;
