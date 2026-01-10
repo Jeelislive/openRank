@@ -284,12 +284,12 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="max-w-2xl mx-auto mb-12"
+              className="max-w-2xl mx-auto mb-12 px-2 sm:px-0"
             >
-              <div className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 hover:border-gray-400 dark:hover:border-gray-600 transition-all bg-white dark:bg-gray-900 shadow-sm relative">
-                <div className="flex items-center gap-4 relative">
-                  <Search className="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                  <div className="flex-1 relative">
+              <div className="border border-gray-300 dark:border-gray-700 rounded-lg p-3 sm:p-4 hover:border-gray-400 dark:hover:border-gray-600 transition-all bg-white dark:bg-gray-900 shadow-sm relative">
+                <div className="flex items-center gap-2 sm:gap-4 relative">
+                  <Search className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                  <div className="flex-1 relative min-w-0 overflow-hidden">
                     <input
                       type="text"
                       placeholder={isFocused ? "Type your search query..." : " "}
@@ -322,11 +322,11 @@ export default function Home() {
                       className="w-full bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none font-body"
                     />
                     {!isFocused && !searchQuery && (
-                      <div className="absolute left-0 top-0 pointer-events-none flex items-center">
-                        <span className="text-gray-600 dark:text-gray-300 font-signature text-lg font-medium">
+                      <div className="absolute left-0 top-0 pointer-events-none flex items-center w-full pr-2 overflow-hidden">
+                        <span className="text-gray-600 dark:text-gray-300 font-signature text-sm sm:text-base md:text-lg font-medium truncate">
                           {animatedPlaceholder}
                         </span>
-                        <span className="ml-1 text-gray-600 dark:text-gray-300 animate-pulse font-signature text-lg">|</span>
+                        <span className="ml-1 text-gray-600 dark:text-gray-300 animate-pulse font-signature text-sm sm:text-base md:text-lg flex-shrink-0">|</span>
                       </div>
                     )}
                     {isFocused && searchQuery.length > 0 && (
@@ -343,21 +343,23 @@ export default function Home() {
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <button
                       onClick={handleGenerate}
                       disabled={!searchQuery.trim() || searchQuery.trim().length < 3 || generating}
-                      className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
+                      className="px-3 sm:px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium"
                     >
                       {generating ? (
                         <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Generating...</span>
+                          <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
+                          <span className="hidden sm:inline">Generating...</span>
+                          <span className="sm:hidden">...</span>
                         </>
                       ) : (
                         <>
-                          <Sparkles className="w-4 h-4" />
-                          <span>Generate</span>
+                          <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          <span className="hidden sm:inline">Generate</span>
+                          <span className="sm:hidden">Go</span>
                         </>
                       )}
                     </button>
