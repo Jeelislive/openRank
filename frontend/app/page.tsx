@@ -26,7 +26,6 @@ export default function Home() {
   const categories = ['All', 'Frontend', 'Backend', 'AI/ML', 'GameDev', 'Systems', 'Mobile', 'DevOps', 'Other']
   const languages = ['All', 'JavaScript', 'TypeScript', 'Python', 'Java', 'Go', 'Rust', 'C++', 'C', 'C#', 'PHP', 'Ruby', 'Swift', 'Kotlin', 'Dart']
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null)
@@ -44,7 +43,6 @@ export default function Home() {
 
     try {
       setGenerating(true)
-        setError(null)
         const result = await extractKeywords(searchQuery)
         const finalQuery = result.searchQuery || searchQuery
         setActiveSearchQuery(finalQuery)
@@ -62,14 +60,12 @@ export default function Home() {
         setProjects(response.projects)
       } catch (err) {
         console.error('Error fetching projects:', err)
-        setError('Failed to load projects')
         setProjects([])
       } finally {
         setLoading(false)
       }
         } catch (err) {
           console.error('Error extracting keywords:', err)
-          setError('Failed to extract keywords. Using original query.')
           setActiveSearchQuery(searchQuery)
           setHasSearched(true)
       try {
@@ -85,7 +81,6 @@ export default function Home() {
         setProjects(response.projects)
       } catch (err) {
         console.error('Error fetching projects:', err)
-        setError('Failed to load projects')
         setProjects([])
       } finally {
         setLoading(false)
@@ -103,7 +98,6 @@ export default function Home() {
     const fetchProjects = async () => {
       try {
         setLoading(true)
-        setError(null)
         const filters: Filters = {
           category: selectedCategory !== 'All' ? selectedCategory : undefined,
           language: selectedLanguage !== 'All' ? selectedLanguage : undefined,
@@ -115,7 +109,6 @@ export default function Home() {
         setProjects(response.projects)
       } catch (err) {
         console.error('Error fetching projects:', err)
-        setError('Failed to load projects')
         setProjects([])
       } finally {
         setLoading(false)
@@ -130,13 +123,11 @@ export default function Home() {
       const fetchNewlyAdded = async () => {
         try {
           setLoading(true)
-          setError(null)
           const response = await getNewlyAdded(currentPage, itemsPerPage)
           setProjects(response.projects)
           setTotalPages(response.totalPages)
         } catch (err) {
           console.error('Error fetching newly added projects:', err)
-          setError('Failed to load newly added projects')
           setProjects([])
         } finally {
           setLoading(false)
@@ -356,7 +347,6 @@ export default function Home() {
             >
               AI Pick
               <Lock className="w-3.5 h-3.5 text-gray-500 dark:text-gray-500" />
-              {/* Tooltip */}
               <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs font-body bg-gray-900 dark:bg-gray-800 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
                 Coming soon
               </span>
@@ -367,7 +357,6 @@ export default function Home() {
             >
               Ranking of Global Developers
               <Lock className="w-3.5 h-3.5 text-gray-500 dark:text-gray-500" />
-              {/* Tooltip */}
               <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs font-body bg-gray-900 dark:bg-gray-800 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
                 Coming soon
               </span>
@@ -424,28 +413,57 @@ export default function Home() {
         )}
 
         {!loading && (
-          <div className="grid grid-cols-1 gap-6 relative">
-            <AnimatePresence mode="wait">
-              {projects?.map((project, index) => (
-                <motion.div
-                  key={project.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                  className="h-full"
-                >
-                  <ProjectCard 
-                    project={project} 
-                    onCardClick={(fullName) => {
-                      setSelectedRepo(fullName)
-                      setIsModalOpen(true)
-                    }}
-                  />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
+          <>
+            {activeTab === 'Newly Added' ? (
+              <div className="overflow-x-auto pb-4 -mx-4 px-4">
+                <div className="flex gap-6 min-w-max">
+                  <AnimatePresence mode="wait">
+                    {projects?.map((project, index) => (
+                      <motion.div
+                        key={project.id}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        transition={{ duration: 0.3, delay: index * 0.05 }}
+                        className="w-80 flex-shrink-0"
+                      >
+                        <ProjectCard 
+                          project={project} 
+                          onCardClick={(fullName) => {
+                            setSelectedRepo(fullName)
+                            setIsModalOpen(true)
+                          }}
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative">
+                <AnimatePresence mode="wait">
+                  {projects?.map((project, index) => (
+                    <motion.div
+                      key={project.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.3, delay: index * 0.05 }}
+                      className="h-full"
+                    >
+                      <ProjectCard 
+                        project={project} 
+                        onCardClick={(fullName) => {
+                          setSelectedRepo(fullName)
+                          setIsModalOpen(true)
+                        }}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
+          </>
         )}
 
         {loading && activeTab === 'Home' && (

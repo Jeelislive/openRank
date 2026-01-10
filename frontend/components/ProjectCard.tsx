@@ -72,10 +72,10 @@ export default function ProjectCard({ project, onCardClick }: ProjectCardProps) 
     <motion.div
       whileHover={{ y: -2 }}
       onClick={handleClick}
-      className="group relative border border-gray-200 dark:border-gray-800 rounded-lg p-4 card-hover cursor-pointer bg-white dark:bg-[#1a1a1f] hover:border-gray-300 dark:hover:border-gray-700 transition-colors"
+      className="group relative border border-gray-200 dark:border-gray-800 rounded-lg p-4 card-hover cursor-pointer bg-white dark:bg-[#1a1a1f] hover:border-gray-300 dark:hover:border-gray-700 transition-colors h-full flex flex-col"
     >
-      <div className="flex items-start gap-4">
-        <div className="flex-1 min-w-0">
+      <div className="flex items-start gap-4 flex-1">
+        <div className="flex-1 min-w-0 flex flex-col">
           <div className="flex items-start justify-between mb-2">
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <div className={`flex items-center gap-1.5 px-2 py-0.5 ${badgeStyles.bg} rounded border ${badgeStyles.border} flex-shrink-0`}>
@@ -108,7 +108,7 @@ export default function ProjectCard({ project, onCardClick }: ProjectCardProps) 
               </span>
             )}
           </div>
-          <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-gray-400 font-body">
+          <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-gray-400 font-body mt-auto">
             <div className="flex items-center gap-1">
               <Star className="w-3.5 h-3.5" />
               <span>{project.stars.toLocaleString()}</span>
