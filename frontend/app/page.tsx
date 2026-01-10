@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, Filter, X, Github, Twitter, MessageCircle, ChevronUp, Loader2, Sparkles, Lock, ChevronLeft, ChevronRight } from 'lucide-react'
+import { toast } from 'sonner'
 import ProjectCard from '@/components/ProjectCard'
 import FilterPanel from '@/components/FilterPanel'
 import StatsSection from '@/components/StatsSection'
@@ -38,15 +39,53 @@ export default function Home() {
   const animatedPlaceholder = useAnimatedPlaceholder()
   const [hasSearched, setHasSearched] = useState(false)
   const [activeSearchQuery, setActiveSearchQuery] = useState('')
+
+  const validateSearchQuery = (query: string): boolean => {
+    const trimmed = query.trim()
+    
+    if (!trimmed) {
+      toast.error('Search query cannot be empty')
+      return false
+    }
+    
+    if (trimmed.length < 3) {
+      toast.error('Please enter at least 3 characters to search')
+      return false
+    }
+    
+    if (trimmed.length > 100) {
+      toast.error('Search query is too long (max 100 characters)')
+      return false
+    }
+    
+    return true
+  }
+
   const handleGenerate = async () => {
-    if (!searchQuery.trim() || generating) return
+    const trimmedQuery = searchQuery.trim()
+    
+    if (!trimmedQuery || generating) return
+    
+    if (!validateSearchQuery(trimmedQuery)) {
+      return
+    }
 
     try {
       setGenerating(true)
-        const result = await extractKeywords(searchQuery)
-        const finalQuery = result.searchQuery || searchQuery
-        setActiveSearchQuery(finalQuery)
-        setHasSearched(true)
+      
+      let finalQuery = trimmedQuery
+      
+      try {
+        const result = await extractKeywords(trimmedQuery)
+        finalQuery = result.searchQuery || trimmedQuery
+      } catch (err) {
+        console.error('Error extracting keywords:', err)
+        finalQuery = trimmedQuery
+      }
+
+      setActiveSearchQuery(finalQuery)
+      setHasSearched(true)
+
       try {
         setLoading(true)
         const filters: Filters = {
@@ -56,31 +95,35 @@ export default function Home() {
           minStars: minStars > 0 ? minStars : undefined,
           search: finalQuery || undefined,
         }
+        
         const response = await getProjects(filters)
-        setProjects(response.projects)
-      } catch (err) {
-        console.error('Error fetching projects:', err)
-        setProjects([])
-      } finally {
-        setLoading(false)
-      }
-        } catch (err) {
-          console.error('Error extracting keywords:', err)
-          setActiveSearchQuery(searchQuery)
-          setHasSearched(true)
-      try {
-        setLoading(true)
-        const filters: Filters = {
-          category: selectedCategory !== 'All' ? selectedCategory : undefined,
-          language: selectedLanguage !== 'All' ? selectedLanguage : undefined,
-          sortBy,
-          minStars: minStars > 0 ? minStars : undefined,
-          search: searchQuery || undefined,
+        
+        if (!response.projects || response.projects.length === 0) {
+          toast.info('No projects found', {
+            description: 'Try adjusting your search or filters',
+          })
+        } else {
+          toast.success(`Found ${response.projects.length} project${response.projects.length !== 1 ? 's' : ''}`)
         }
-        const response = await getProjects(filters)
+        
         setProjects(response.projects)
-      } catch (err) {
-        console.error('Error fetching projects:', err)
+      } catch (err: any) {
+        const errorMessage = err?.message || 'Failed to fetch projects'
+        
+        if (errorMessage.includes('Failed to fetch') || errorMessage.includes('network')) {
+          toast.error('Network error', {
+            description: 'Please check your internet connection and try again',
+          })
+        } else if (errorMessage.includes('rate limit') || errorMessage.includes('spam')) {
+          toast.warning('Service temporarily unavailable', {
+            description: 'GitHub API is rate-limited. Please try again in a few moments.',
+          })
+        } else {
+          toast.error('Failed to load projects', {
+            description: errorMessage,
+          })
+        }
+        
         setProjects([])
       } finally {
         setLoading(false)
@@ -106,9 +149,27 @@ export default function Home() {
           search: activeSearchQuery || undefined,
         }
         const response = await getProjects(filters)
+        
+        if (response.projects.length === 0) {
+          toast.info('No projects found', {
+            description: 'Try adjusting your filters or search query',
+          })
+        }
+        
         setProjects(response.projects)
-      } catch (err) {
-        console.error('Error fetching projects:', err)
+      } catch (err: any) {
+        const errorMessage = err?.message || 'Failed to fetch projects'
+        
+        if (errorMessage.includes('Failed to fetch') || errorMessage.includes('network')) {
+          toast.error('Network error', {
+            description: 'Please check your internet connection',
+          })
+        } else {
+          toast.error('Failed to load projects', {
+            description: errorMessage,
+          })
+        }
+        
         setProjects([])
       } finally {
         setLoading(false)
@@ -234,19 +295,30 @@ export default function Home() {
                       placeholder={isFocused ? "Type your search query..." : " "}
                       value={searchQuery}
                       onChange={(e) => {
-                        setSearchQuery(e.target.value)
-                      }}
-                          onFocus={() => setIsFocused(true)}
-                          onBlur={() => {
-                            if (!searchQuery.trim()) {
-                              setIsFocused(false)
-                            }
-                          }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && searchQuery.trim()) {
-                          handleGenerate()
+                        const value = e.target.value
+                        if (value.length <= 100) {
+                          setSearchQuery(value)
                         }
                       }}
+                      onFocus={() => setIsFocused(true)}
+                      onBlur={() => {
+                        if (!searchQuery.trim()) {
+                          setIsFocused(false)
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const trimmed = searchQuery.trim()
+                          if (trimmed.length >= 3) {
+                            handleGenerate()
+                          } else if (trimmed.length > 0) {
+                            toast.error('Please enter at least 3 characters to search')
+                          } else {
+                            toast.error('Search query cannot be empty')
+                          }
+                        }
+                      }}
+                      maxLength={100}
                       className="w-full bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none font-body"
                     />
                     {!isFocused && !searchQuery && (
@@ -257,11 +329,24 @@ export default function Home() {
                         <span className="ml-1 text-gray-600 dark:text-gray-300 animate-pulse font-signature text-lg">|</span>
                       </div>
                     )}
+                    {isFocused && searchQuery.length > 0 && (
+                      <div className="absolute right-0 -bottom-5 text-xs text-gray-400 dark:text-gray-500">
+                        {searchQuery.length < 3 ? (
+                          <span className="text-yellow-600 dark:text-yellow-400">
+                            {3 - searchQuery.length} more character{3 - searchQuery.length !== 1 ? 's' : ''} needed
+                          </span>
+                        ) : (
+                          <span className={searchQuery.length > 90 ? 'text-red-500' : ''}>
+                            {searchQuery.length}/100
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={handleGenerate}
-                      disabled={!searchQuery.trim() || generating}
+                      disabled={!searchQuery.trim() || searchQuery.trim().length < 3 || generating}
                       className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
                     >
                       {generating ? (

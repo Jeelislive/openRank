@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Script from 'next/script'
 import { Inter, Poppins, JetBrains_Mono, Caveat } from 'next/font/google'
+import { Toaster } from 'sonner'
 import './globals.css'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 
@@ -205,6 +206,12 @@ export default function RootLayout({
         />
         <ThemeProvider>
           {children}
+          <Toaster 
+            position="top-right"
+            richColors
+            closeButton
+            duration={4000}
+          />
         </ThemeProvider>
       </body>
     </html>
