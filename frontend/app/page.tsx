@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, Filter, X, Github, Twitter, MessageCircle, ChevronUp, Loader2, Sparkles, Lock, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
@@ -39,6 +39,9 @@ export default function Home() {
   const animatedPlaceholder = useAnimatedPlaceholder()
   const [hasSearched, setHasSearched] = useState(false)
   const [activeSearchQuery, setActiveSearchQuery] = useState('')
+  
+  // Cache for API responses - keyed by exact call parameters
+  const apiCacheRef = useRef<Map<string, { projects: Project[], totalPages?: number }>>(new Map())
 
   const validateSearchQuery = (query: string): boolean => {
     const trimmed = query.trim()
@@ -87,7 +90,6 @@ export default function Home() {
       setHasSearched(true)
 
       try {
-        setLoading(true)
         const filters: Filters = {
           category: selectedCategory !== 'All' ? selectedCategory : undefined,
           language: selectedLanguage !== 'All' ? selectedLanguage : undefined,
@@ -96,6 +98,17 @@ export default function Home() {
           search: finalQuery || undefined,
         }
         
+        // Create cache key from filters
+        const cacheKey = `home_${JSON.stringify(filters)}`
+        
+        // Check cache first
+        const cached = apiCacheRef.current.get(cacheKey)
+        if (cached) {
+          setProjects(cached.projects)
+          return
+        }
+        
+        setLoading(true)
         const response = await getProjects(filters)
         
         if (!response.projects || response.projects.length === 0) {
@@ -107,6 +120,9 @@ export default function Home() {
         }
         
         setProjects(response.projects)
+        
+        // Store in cache
+        apiCacheRef.current.set(cacheKey, { projects: response.projects })
       } catch (err: any) {
         const errorMessage = err?.message || 'Failed to fetch projects'
         
@@ -134,13 +150,13 @@ export default function Home() {
   }
 
   useEffect(() => {
+    // Only run when on Home tab with a search query
     if (activeTab !== 'Home' || !hasSearched || !activeSearchQuery) {
       return
     }
 
     const fetchProjects = async () => {
       try {
-        setLoading(true)
         const filters: Filters = {
           category: selectedCategory !== 'All' ? selectedCategory : undefined,
           language: selectedLanguage !== 'All' ? selectedLanguage : undefined,
@@ -148,6 +164,19 @@ export default function Home() {
           minStars: minStars > 0 ? minStars : undefined,
           search: activeSearchQuery || undefined,
         }
+        
+        // Create cache key from filters
+        const cacheKey = `home_${JSON.stringify(filters)}`
+        
+        // Check cache first - if exists, use cached data and skip API call
+        const cached = apiCacheRef.current.get(cacheKey)
+        if (cached) {
+          setProjects(cached.projects)
+          return
+        }
+        
+        // Cache miss - fetch from API
+        setLoading(true)
         const response = await getProjects(filters)
         
         if (response.projects.length === 0) {
@@ -157,6 +186,9 @@ export default function Home() {
         }
         
         setProjects(response.projects)
+        
+        // Store in cache for future use
+        apiCacheRef.current.set(cacheKey, { projects: response.projects })
       } catch (err: any) {
         const errorMessage = err?.message || 'Failed to fetch projects'
         
@@ -181,12 +213,29 @@ export default function Home() {
 
   useEffect(() => {
     if (activeTab === 'Newly Added') {
+      // Create cache key for newly added (page-based)
+      const cacheKey = `newlyAdded_page_${currentPage}`
+      
+      // Check cache first
+      const cached = apiCacheRef.current.get(cacheKey)
+      if (cached && cached.totalPages !== undefined) {
+        setProjects(cached.projects)
+        setTotalPages(cached.totalPages)
+        return
+      }
+      
       const fetchNewlyAdded = async () => {
         try {
           setLoading(true)
           const response = await getNewlyAdded(currentPage, itemsPerPage)
           setProjects(response.projects)
           setTotalPages(response.totalPages)
+          
+          // Store in cache
+          apiCacheRef.current.set(cacheKey, { 
+            projects: response.projects, 
+            totalPages: response.totalPages 
+          })
         } catch (err) {
           console.error('Error fetching newly added projects:', err)
           setProjects([])
@@ -199,9 +248,23 @@ export default function Home() {
       if (!hasSearched) {
         setProjects([])
         setTotalPages(1)
+      } else {
+        // Restore cached Home data when switching back
+        const filters: Filters = {
+          category: selectedCategory !== 'All' ? selectedCategory : undefined,
+          language: selectedLanguage !== 'All' ? selectedLanguage : undefined,
+          sortBy,
+          minStars: minStars > 0 ? minStars : undefined,
+          search: activeSearchQuery || undefined,
+        }
+        const cacheKey = `home_${JSON.stringify(filters)}`
+        const cached = apiCacheRef.current.get(cacheKey)
+        if (cached) {
+          setProjects(cached.projects)
+        }
       }
     }
-  }, [activeTab, currentPage])
+  }, [activeTab, currentPage, hasSearched, activeSearchQuery, selectedCategory, selectedLanguage, sortBy, minStars])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -502,29 +565,28 @@ export default function Home() {
         {!loading && (
           <>
             {activeTab === 'Newly Added' ? (
-              <div className="overflow-x-auto pb-4 -mx-4 px-4">
-                <div className="flex gap-6 min-w-max">
-                  <AnimatePresence mode="wait">
-                    {projects?.map((project, index) => (
-                      <motion.div
-                        key={project.id}
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        transition={{ duration: 0.3, delay: index * 0.05 }}
-                        className="w-80 flex-shrink-0"
-                      >
-                        <ProjectCard 
-                          project={project} 
-                          onCardClick={(fullName) => {
-                            setSelectedRepo(fullName)
-                            setIsModalOpen(true)
-                          }}
-                        />
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
+              <div className="flex flex-col gap-4">
+                <AnimatePresence mode="wait">
+                  {projects?.map((project, index) => (
+                    <motion.div
+                      key={project.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.3, delay: index * 0.05 }}
+                      className="w-full"
+                    >
+                      <ProjectCard 
+                        project={project} 
+                        variant="horizontal"
+                        onCardClick={(fullName) => {
+                          setSelectedRepo(fullName)
+                          setIsModalOpen(true)
+                        }}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative">
