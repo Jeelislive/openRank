@@ -187,3 +187,160 @@ export async function getNewlyAdded(page: number = 1, limit: number = 10): Promi
   return response.json()
 }
 
+// Developer Ranking APIs
+export interface Developer {
+  id: number
+  githubUsername: string
+  name: string | null
+  bio: string | null
+  avatarUrl: string | null
+  profileUrl: string | null
+  prImpact: number
+  issueImpact: number
+  dependencyInfluence: number
+  projectLongevity: number
+  communityImpact: number
+  docsImpact: number
+  consistency: number
+  qualityMultiplier: number
+  finalImpactScore: number
+  followers: number
+  following: number
+  publicRepos: number
+  totalPRs: number
+  totalCommits: number
+  totalIssues: number
+  totalLinesAdded: number
+  totalLinesDeleted: number
+  totalContributions: number
+  totalStarsReceived: number
+  totalForksReceived: number
+  country: string | null
+  city: string | null
+  location: string | null
+  topLanguages: string[]
+  topRepositories: string[]
+  activeProjects: number
+  yearsActive: number
+  githubCreatedAt: string | null
+  lastActiveAt: string | null
+  rank?: number
+}
+
+export interface DevelopersRankingResponse {
+  developers: Developer[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+export async function getDevelopersRanking(
+  page: number = 1,
+  limit: number = 50,
+  country?: string,
+  city?: string
+): Promise<DevelopersRankingResponse> {
+  const queryParams = new URLSearchParams()
+  queryParams.append('page', page.toString())
+  queryParams.append('limit', limit.toString())
+  if (country) queryParams.append('country', country)
+  if (city) queryParams.append('city', city)
+
+  const response = await fetch(`${API_BASE_URL}/api/developers/rankings?${queryParams.toString()}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch developers ranking')
+  }
+
+  return response.json()
+}
+
+export async function searchDevelopers(query: string, limit: number = 20): Promise<{ developers: Developer[], total: number }> {
+  const queryParams = new URLSearchParams()
+  queryParams.append('q', query)
+  queryParams.append('limit', limit.toString())
+
+  const response = await fetch(`${API_BASE_URL}/api/developers/search?${queryParams.toString()}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to search developers')
+  }
+
+  return response.json()
+}
+
+export async function getDeveloperByUsername(username: string): Promise<Developer> {
+  const response = await fetch(`${API_BASE_URL}/api/developers/${username}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch developer')
+  }
+
+  return response.json()
+}
+
+export async function getAvailableCountries(): Promise<string[]> {
+  const response = await fetch(`${API_BASE_URL}/api/developers/countries`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch countries')
+  }
+
+  const data = await response.json()
+  return data.countries || []
+}
+
+export async function getAvailableCities(country: string): Promise<string[]> {
+  const queryParams = new URLSearchParams()
+  queryParams.append('country', country)
+
+  const response = await fetch(`${API_BASE_URL}/api/developers/cities?${queryParams.toString()}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch cities')
+  }
+
+  const data = await response.json()
+  return data.cities || []
+}
+
+export async function calculateDeveloper(username: string): Promise<{ message: string, developer: Developer }> {
+  const response = await fetch(`${API_BASE_URL}/api/developers/${username}/calculate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to calculate developer')
+  }
+
+  return response.json()
+}

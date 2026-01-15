@@ -9,7 +9,9 @@ import FilterPanel from '@/components/FilterPanel'
 import StatsSection from '@/components/StatsSection'
 import ThemeToggle from '@/components/ThemeToggle'
 import RepositoryModal from '@/components/RepositoryModal'
+import DeveloperCard from '@/components/DeveloperCard'
 import { getProjects, extractKeywords, getNewlyAdded, type Project, type Filters } from '@/lib/api'
+import { getDevelopersRanking, getAvailableCountries, getAvailableCities, getAvailableCompanies, getAvailableProfileTypes, checkDeveloperRank, type Developer } from '@/lib/developers-api'
 import { useAnimatedPlaceholder } from '@/hooks/useAnimatedPlaceholder'
 
 const sortOptions = ['Rank', 'Stars', 'Forks', 'Recently Updated', 'Most Active']
@@ -42,6 +44,25 @@ export default function Home() {
   
   // Cache for API responses - keyed by exact call parameters
   const apiCacheRef = useRef<Map<string, { projects: Project[], totalPages?: number }>>(new Map())
+  
+  // Developer Ranking State
+  const [developers, setDevelopers] = useState<Developer[]>([])
+  const [developersLoading, setDevelopersLoading] = useState(false)
+  const [developersPage, setDevelopersPage] = useState(1)
+  const [developersTotalPages, setDevelopersTotalPages] = useState(1)
+  const [selectedCountry, setSelectedCountry] = useState<string>('')
+  const [selectedCity, setSelectedCity] = useState<string>('')
+  const [selectedCompany, setSelectedCompany] = useState<string>('')
+  const [selectedProfileType, setSelectedProfileType] = useState<string>('')
+  const [availableCountries, setAvailableCountries] = useState<string[]>([])
+  const [availableCities, setAvailableCities] = useState<string[]>([])
+  const [availableCompanies, setAvailableCompanies] = useState<string[]>([])
+  const [availableProfileTypes, setAvailableProfileTypes] = useState<string[]>([])
+  const [rankSearchQuery, setRankSearchQuery] = useState<string>('')
+  const [rankSearchResult, setRankSearchResult] = useState<any>(null)
+  const [rankSearchLoading, setRankSearchLoading] = useState(false)
+  const [isProcessingProfile, setIsProcessingProfile] = useState(false)
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const validateSearchQuery = (query: string): boolean => {
     const trimmed = query.trim()
@@ -265,6 +286,236 @@ export default function Home() {
       }
     }
   }, [activeTab, currentPage, hasSearched, activeSearchQuery, selectedCategory, selectedLanguage, sortBy, minStars])
+
+  // Fetch developers ranking with auto-discovery (OPTIMIZED: Fast loading)
+  useEffect(() => {
+    if (activeTab === 'Ranking of Global Developers') {
+      const fetchDevelopers = async () => {
+        try {
+          setDevelopersLoading(true)
+          
+          // Fetch immediately - backend returns cached data first
+          // Only pass filters if they're not empty and not "All" options
+          const response = await getDevelopersRanking(
+            developersPage,
+            25, // 25 per page
+            selectedCountry && selectedCountry !== '' ? selectedCountry : undefined,
+            selectedCity && selectedCity !== '' ? selectedCity : undefined,
+            selectedCompany && selectedCompany !== '' ? selectedCompany : undefined,
+            selectedProfileType && selectedProfileType !== '' ? selectedProfileType : undefined,
+            true // Enable auto-discovery (runs in background)
+          )
+          
+          setDevelopers(response.developers)
+          setDevelopersTotalPages(response.totalPages)
+          
+          // If we got results, show success (even if background processing is happening)
+          if (response.developers.length > 0) {
+            // Silently update - no toast spam
+            if (response.autoDiscovered && developersPage === 1) {
+              toast.success(`Found ${response.developers.length} developers!`, {
+                description: selectedCompany ? `From ${selectedCompany}` : 'Processing complete',
+                duration: 3000,
+              })
+            }
+          } else if (developersPage === 1) {
+            // Show message if no results - might be discovering
+            if (selectedCompany && selectedCompany !== '') {
+              toast.info(`Fetching ${selectedCompany} developers...`, {
+                description: 'Searching GitHub and processing profiles. This may take 30-60 seconds.',
+                duration: 5000,
+              })
+            } else {
+              toast.info('Discovering developers...', {
+                description: 'This may take a moment. Refreshing in background.',
+                duration: 3000,
+              })
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching developers:', err)
+          toast.error('Failed to load developers ranking', {
+            description: 'Please try again in a moment',
+          })
+          setDevelopers([])
+        } finally {
+          setDevelopersLoading(false)
+        }
+      }
+      fetchDevelopers()
+    }
+  }, [activeTab, developersPage, selectedCountry, selectedCity, selectedCompany, selectedProfileType])
+
+  // Handle rank search
+  const handleRankSearch = async () => {
+    if (!rankSearchQuery.trim()) return
+
+    try {
+      setRankSearchLoading(true)
+      setIsProcessingProfile(false)
+      const result = await checkDeveloperRank(
+        rankSearchQuery.trim(),
+        selectedCountry && selectedCountry !== '' ? selectedCountry : undefined,
+        selectedCity && selectedCity !== '' ? selectedCity : undefined,
+        selectedCompany && selectedCompany !== '' ? selectedCompany : undefined,
+        selectedProfileType && selectedProfileType !== '' ? selectedProfileType : undefined
+      )
+      setRankSearchResult(result)
+      
+      if (!result.eligible) {
+        toast.error('Not Eligible for Ranking', {
+          description: result.message || 'You do not meet the eligibility criteria.',
+          duration: 6000,
+        })
+        setIsProcessingProfile(false)
+      } else if (result.processing) {
+        setIsProcessingProfile(true)
+        toast.info('Processing Profile', {
+          description: 'We are processing your profile. This may take a few moments...',
+          duration: 5000,
+        })
+        // Poll for completion
+        pollForRankCompletion()
+      } else if (result.rank === 0) {
+        setIsProcessingProfile(false)
+        toast.info('Not Found in Rankings', {
+          description: result.message || 'Developer not found with current filters.',
+          duration: 4000,
+        })
+      } else {
+        setIsProcessingProfile(false)
+        toast.success(`Rank found: #${result.rank} of ${result.total}`)
+      }
+    } catch (err: any) {
+      console.error('Error checking rank:', err)
+      toast.error(err.message || 'Failed to check rank')
+      setRankSearchResult(null)
+      setIsProcessingProfile(false)
+    } finally {
+      setRankSearchLoading(false)
+    }
+  }
+
+  // Poll for rank completion when processing
+  const pollForRankCompletion = async () => {
+    if (!rankSearchQuery.trim()) return
+    
+    // Clear any existing interval
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current)
+    }
+    
+    let attempts = 0
+    const maxAttempts = 30 // 30 attempts = 30 seconds (1 second intervals)
+    
+    pollingIntervalRef.current = setInterval(async () => {
+      attempts++
+      
+      try {
+        const result = await checkDeveloperRank(
+          rankSearchQuery.trim(),
+          selectedCountry && selectedCountry !== '' ? selectedCountry : undefined,
+          selectedCity && selectedCity !== '' ? selectedCity : undefined,
+          selectedCompany && selectedCompany !== '' ? selectedCompany : undefined,
+          selectedProfileType && selectedProfileType !== '' ? selectedProfileType : undefined
+        )
+        
+        if (!result.processing && result.rank > 0) {
+          // Processing complete and rank found
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current)
+            pollingIntervalRef.current = null
+          }
+          setIsProcessingProfile(false)
+          setRankSearchResult(result)
+          toast.success(`Rank found: #${result.rank} of ${result.total}`, {
+            description: 'Profile processing completed!',
+          })
+        } else if (!result.processing && result.rank === 0) {
+          // Processing complete but no rank (might have failed)
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current)
+            pollingIntervalRef.current = null
+          }
+          setIsProcessingProfile(false)
+          setRankSearchResult(result)
+          toast.warning('Processing Complete', {
+            description: result.message || 'Profile processed but not found in rankings.',
+            duration: 4000,
+          })
+        } else if (attempts >= maxAttempts) {
+          // Timeout
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current)
+            pollingIntervalRef.current = null
+          }
+          setIsProcessingProfile(false)
+          toast.error('Processing Timeout', {
+            description: 'Processing is taking longer than expected. Please try again in a few moments.',
+            duration: 5000,
+          })
+        }
+      } catch (err) {
+        console.error('Error polling for rank:', err)
+        if (attempts >= maxAttempts) {
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current)
+            pollingIntervalRef.current = null
+          }
+          setIsProcessingProfile(false)
+        }
+      }
+    }, 1000) // Poll every 1 second
+  }
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+        pollingIntervalRef.current = null
+      }
+    }
+  }, [])
+
+  // Fetch available filters
+  useEffect(() => {
+    if (activeTab === 'Ranking of Global Developers') {
+      const fetchFilters = async () => {
+        try {
+          const [countries, companies, profileTypes] = await Promise.all([
+            getAvailableCountries(),
+            getAvailableCompanies(),
+            getAvailableProfileTypes(),
+          ])
+          setAvailableCountries(countries)
+          setAvailableCompanies(companies)
+          setAvailableProfileTypes(profileTypes)
+        } catch (err) {
+          console.error('Error fetching filters:', err)
+        }
+      }
+      fetchFilters()
+    }
+  }, [activeTab])
+
+  // Fetch available cities when country changes
+  useEffect(() => {
+    if (activeTab === 'Ranking of Global Developers' && selectedCountry) {
+      const fetchCities = async () => {
+        try {
+          const cities = await getAvailableCities(selectedCountry)
+          setAvailableCities(cities)
+        } catch (err) {
+          console.error('Error fetching cities:', err)
+          setAvailableCities([])
+        }
+      }
+      fetchCities()
+    } else {
+      setAvailableCities([])
+    }
+  }, [activeTab, selectedCountry])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -502,14 +753,17 @@ export default function Home() {
               </span>
             </button>
             <button 
-              className="py-4 text-sm font-heading font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex items-center gap-2 relative group cursor-not-allowed"
-              disabled
+              onClick={() => {
+                setActiveTab('Ranking of Global Developers')
+                setDevelopersPage(1)
+              }}
+              className={`py-4 text-sm font-heading font-medium transition-colors ${
+                activeTab === 'Ranking of Global Developers'
+                  ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-white'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
             >
               Ranking of Global Developers
-              <Lock className="w-3.5 h-3.5 text-gray-500 dark:text-gray-500" />
-              <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs font-body bg-gray-900 dark:bg-gray-800 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                Coming soon
-              </span>
             </button>
           </div>
         </div>
@@ -555,6 +809,232 @@ export default function Home() {
           )}
         </div>
 
+        {/* Filters and Rank Search for Developers Ranking */}
+        {activeTab === 'Ranking of Global Developers' && (
+          <div className="space-y-4 mb-8">
+            {/* Rank Search Bar */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search your GitHub username to check your rank..."
+                  value={rankSearchQuery}
+                  onChange={(e) => setRankSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && rankSearchQuery.trim()) {
+                      handleRankSearch()
+                    }
+                  }}
+                  className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+                />
+              </div>
+              <button
+                onClick={handleRankSearch}
+                disabled={!rankSearchQuery.trim() || rankSearchLoading}
+                className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+              >
+                {rankSearchLoading ? 'Checking...' : 'Check Rank'}
+              </button>
+            </div>
+
+            {/* Rank Search Result */}
+            {rankSearchResult && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`p-4 rounded-lg border ${
+                  rankSearchResult.processing
+                    ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800'
+                    : !rankSearchResult.eligible || rankSearchResult.rank === 0
+                    ? 'bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 border-orange-200 dark:border-orange-800'
+                    : 'bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-blue-200 dark:border-blue-800'
+                }`}
+              >
+                {rankSearchResult.processing ? (
+                  <div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <Loader2 className="w-5 h-5 animate-spin text-blue-600 dark:text-blue-400" />
+                      <h3 className="font-semibold text-gray-900 dark:text-white">
+                        Processing {rankSearchResult.username}...
+                      </h3>
+                    </div>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                      {rankSearchResult.message || 'We are analyzing your GitHub profile and calculating your impact score. This may take a few moments.'}
+                    </p>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                      <motion.div
+                        className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full"
+                        initial={{ width: '0%' }}
+                        animate={{ width: '100%' }}
+                        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      Please wait, this usually takes 10-30 seconds...
+                    </p>
+                  </div>
+                ) : !rankSearchResult.eligible || rankSearchResult.rank === 0 ? (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-lg">⚠️</span>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">
+                        {rankSearchResult.username}
+                      </h3>
+                    </div>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">
+                      {rankSearchResult.message}
+                    </p>
+                    {!rankSearchResult.eligible && (
+                      <div className="mt-3 p-2 bg-orange-100 dark:bg-orange-900/30 rounded text-xs text-orange-800 dark:text-orange-200">
+                        <strong>Eligibility Criteria:</strong> You need to meet at least ONE of these in the last 90 days:
+                        <ul className="list-disc list-inside mt-1 space-y-1">
+                          <li>≥ 10 merged PRs to a public repo</li>
+                          <li>≥ 2 issues closed (not self-created)</li>
+                          <li>≥ 1 PR review accepted</li>
+                          <li>Maintainer of an active repo</li>
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">
+                        {rankSearchResult.developer?.name || rankSearchResult.username}
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Rank #{rankSearchResult.rank} of {rankSearchResult.total} developers
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                        {rankSearchResult.filters.country} {rankSearchResult.filters.city && `• ${rankSearchResult.filters.city}`}
+                        {rankSearchResult.filters.company && `• ${rankSearchResult.filters.company}`}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        {rankSearchResult.score.toFixed(1)}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">Score</div>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-col">
+                <select
+                  value={selectedCountry}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setSelectedCountry(value)
+                    setSelectedCity('')
+                    // Clear company filter when location is selected
+                    if (value && value !== '') {
+                      setSelectedCompany('')
+                    }
+                    setDevelopersPage(1)
+                  }}
+                  className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!!(selectedCompany && selectedCompany !== '')}
+                >
+                  <option value="">All Locations</option>
+                  {availableCountries.map((country) => (
+                    <option key={country} value={country}>
+                      {country}
+                    </option>
+                  ))}
+                </select>
+                {selectedCompany && selectedCompany !== '' && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">Disabled when company is selected</span>
+                )}
+              </div>
+
+              {selectedCountry && selectedCountry !== '' && (
+                <div className="flex flex-col">
+                  <select
+                    value={selectedCity}
+                    onChange={(e) => {
+                      setSelectedCity(e.target.value)
+                      setDevelopersPage(1)
+                    }}
+                    className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!!(selectedCompany && selectedCompany !== '')}
+                  >
+                    <option value="">All Cities</option>
+                    {availableCities.map((city) => (
+                      <option key={city} value={city}>
+                        {city}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="flex flex-col">
+                <select
+                  value={selectedCompany}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setSelectedCompany(value)
+                    // Clear location filters when company is selected
+                    if (value && value !== '') {
+                      setSelectedCountry('')
+                      setSelectedCity('')
+                    }
+                    setDevelopersPage(1)
+                  }}
+                  className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!!((selectedCountry && selectedCountry !== '') || (selectedCity && selectedCity !== ''))}
+                >
+                  <option value="">All Companies</option>
+                  {availableCompanies.map((company) => (
+                    <option key={company} value={company}>
+                      {company}
+                    </option>
+                  ))}
+                </select>
+                {(selectedCountry && selectedCountry !== '') || (selectedCity && selectedCity !== '') ? (
+                  <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">Disabled when location is selected</span>
+                ) : null}
+              </div>
+
+              <select
+                value={selectedProfileType}
+                onChange={(e) => {
+                  setSelectedProfileType(e.target.value)
+                  setDevelopersPage(1)
+                }}
+                className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+              >
+                <option value="">All Profile Types</option>
+                {availableProfileTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+
+              {(selectedCountry || selectedCity || selectedCompany || selectedProfileType) && (
+                <button
+                  onClick={() => {
+                    setSelectedCountry('')
+                    setSelectedCity('')
+                    setSelectedCompany('')
+                    setSelectedProfileType('')
+                    setDevelopersPage(1)
+                  }}
+                  className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                >
+                  Clear All Filters
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {loading && activeTab === 'Newly Added' && (
           <div className="flex flex-col items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-gray-400 dark:text-gray-600 mb-4" />
@@ -562,9 +1042,45 @@ export default function Home() {
           </div>
         )}
 
+        {developersLoading && activeTab === 'Ranking of Global Developers' && (
+          <div className="flex flex-col items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-gray-400 dark:text-gray-600 mb-4" />
+            <p className="text-sm font-body text-gray-500 dark:text-gray-400">Loading developers ranking...</p>
+          </div>
+        )}
+
         {!loading && (
           <>
-            {activeTab === 'Newly Added' ? (
+            {activeTab === 'Ranking of Global Developers' ? (
+              <div className="flex flex-col gap-4">
+                <AnimatePresence mode="wait">
+                  {developers.map((developer, index) => (
+                    <motion.div
+                      key={developer.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.3, delay: index * 0.03 }}
+                      className="w-full"
+                    >
+                      <DeveloperCard
+                        developer={developer}
+                        onCardClick={(username) => {
+                          window.open(`https://github.com/${username}`, '_blank')
+                        }}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+                {developers.length === 0 && !developersLoading && (
+                  <div className="text-center py-20">
+                    <p className="text-gray-500 dark:text-gray-400">
+                      No developers found. Try adjusting your filters or check back later.
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : activeTab === 'Newly Added' ? (
               <div className="flex flex-col gap-4">
                 <AnimatePresence mode="wait">
                   {projects?.map((project, index) => (
@@ -680,6 +1196,58 @@ export default function Home() {
             <button
               onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages || loading}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-body text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'Ranking of Global Developers' && developersTotalPages > 1 && !developersLoading && (
+          <div className="flex items-center justify-center gap-4 mt-12">
+            <button
+              onClick={() => setDevelopersPage(prev => Math.max(1, prev - 1))}
+              disabled={developersPage === 1 || developersLoading}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-body text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Previous
+            </button>
+            <div className="flex items-center gap-2">
+              {Array.from({ length: Math.min(5, developersTotalPages) }, (_, i) => {
+                let pageNum;
+                if (developersTotalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (developersPage <= 3) {
+                  pageNum = i + 1;
+                } else if (developersPage >= developersTotalPages - 2) {
+                  pageNum = developersTotalPages - 4 + i;
+                } else {
+                  pageNum = developersPage - 2 + i;
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setDevelopersPage(pageNum)}
+                    disabled={developersLoading}
+                    className={`px-3 py-2 text-sm font-body rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      developersPage === pageNum
+                        ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                        : 'text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+            <span className="text-sm font-body text-gray-600 dark:text-gray-400">
+              Page {developersPage} of {developersTotalPages} • Showing 25 per page
+            </span>
+            <button
+              onClick={() => setDevelopersPage(prev => Math.min(developersTotalPages, prev + 1))}
+              disabled={developersPage === developersTotalPages || developersLoading}
               className="flex items-center gap-2 px-4 py-2 text-sm font-body text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
