@@ -75,9 +75,14 @@ export default function DeveloperCard({ developer, onCardClick }: DeveloperCardP
                 {developer.githubUsername}
               </a>
             </div>
-            <div className="flex items-center gap-1 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-3 py-1 rounded-full text-sm font-bold">
-              <Trophy className="w-4 h-4" />
-              {Math.min(100, Number(developer.finalImpactScore || 0)).toFixed(1)}/100
+            <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-lg">
+              <div className="flex items-center gap-1.5">
+                <Trophy className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {Math.min(100, Number(developer.finalImpactScore || 0)).toFixed(1)}
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">/100</span>
+              </div>
             </div>
           </div>
 

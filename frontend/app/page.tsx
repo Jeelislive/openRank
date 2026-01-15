@@ -19,10 +19,17 @@ const sortOptions = ['Rank', 'Stars', 'Forks', 'Recently Updated', 'Most Active'
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+  // Pending filters (UI selection - not applied yet)
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [selectedLanguage, setSelectedLanguage] = useState('All')
   const [sortBy, setSortBy] = useState('Rank')
   const [minStars, setMinStars] = useState(0)
+  
+  // Applied filters (actually used for API calls)
+  const [appliedCategory, setAppliedCategory] = useState('All')
+  const [appliedLanguage, setAppliedLanguage] = useState('All')
+  const [appliedSortBy, setAppliedSortBy] = useState('Rank')
+  const [appliedMinStars, setAppliedMinStars] = useState(0)
   const [showScrollTop, setShowScrollTop] = useState(false)
   
   const [projects, setProjects] = useState<Project[]>([])
@@ -50,10 +57,17 @@ export default function Home() {
   const [developersLoading, setDevelopersLoading] = useState(false)
   const [developersPage, setDevelopersPage] = useState(1)
   const [developersTotalPages, setDevelopersTotalPages] = useState(1)
+  // Pending filters (UI selection - not applied yet)
   const [selectedCountry, setSelectedCountry] = useState<string>('')
   const [selectedCity, setSelectedCity] = useState<string>('')
   const [selectedCompany, setSelectedCompany] = useState<string>('')
   const [selectedProfileType, setSelectedProfileType] = useState<string>('')
+  
+  // Applied filters (actually used for API calls)
+  const [appliedCountry, setAppliedCountry] = useState<string>('')
+  const [appliedCity, setAppliedCity] = useState<string>('')
+  const [appliedCompany, setAppliedCompany] = useState<string>('')
+  const [appliedProfileType, setAppliedProfileType] = useState<string>('')
   const [availableCountries, setAvailableCountries] = useState<string[]>([])
   const [availableCities, setAvailableCities] = useState<string[]>([])
   const [availableCompanies, setAvailableCompanies] = useState<string[]>([])
@@ -63,6 +77,9 @@ export default function Home() {
   const [rankSearchLoading, setRankSearchLoading] = useState(false)
   const [isProcessingProfile, setIsProcessingProfile] = useState(false)
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const [companyDropdownOpen, setCompanyDropdownOpen] = useState(false)
+  const [companySearchQuery, setCompanySearchQuery] = useState('')
+  const companyDropdownRef = useRef<HTMLDivElement>(null)
 
   const validateSearchQuery = (query: string): boolean => {
     const trimmed = query.trim()
@@ -112,10 +129,10 @@ export default function Home() {
 
       try {
         const filters: Filters = {
-          category: selectedCategory !== 'All' ? selectedCategory : undefined,
-          language: selectedLanguage !== 'All' ? selectedLanguage : undefined,
-          sortBy,
-          minStars: minStars > 0 ? minStars : undefined,
+          category: appliedCategory !== 'All' ? appliedCategory : undefined,
+          language: appliedLanguage !== 'All' ? appliedLanguage : undefined,
+          sortBy: appliedSortBy,
+          minStars: appliedMinStars > 0 ? appliedMinStars : undefined,
           search: finalQuery || undefined,
         }
         
@@ -179,10 +196,10 @@ export default function Home() {
     const fetchProjects = async () => {
       try {
         const filters: Filters = {
-          category: selectedCategory !== 'All' ? selectedCategory : undefined,
-          language: selectedLanguage !== 'All' ? selectedLanguage : undefined,
-          sortBy,
-          minStars: minStars > 0 ? minStars : undefined,
+          category: appliedCategory !== 'All' ? appliedCategory : undefined,
+          language: appliedLanguage !== 'All' ? appliedLanguage : undefined,
+          sortBy: appliedSortBy,
+          minStars: appliedMinStars > 0 ? appliedMinStars : undefined,
           search: activeSearchQuery || undefined,
         }
         
@@ -230,7 +247,7 @@ export default function Home() {
     }
 
     fetchProjects()
-  }, [selectedCategory, selectedLanguage, sortBy, minStars, activeSearchQuery, hasSearched, activeTab])
+  }, [appliedCategory, appliedLanguage, appliedSortBy, appliedMinStars, activeSearchQuery, hasSearched, activeTab])
 
   useEffect(() => {
     if (activeTab === 'Newly Added') {
@@ -272,10 +289,10 @@ export default function Home() {
       } else {
         // Restore cached Home data when switching back
         const filters: Filters = {
-          category: selectedCategory !== 'All' ? selectedCategory : undefined,
-          language: selectedLanguage !== 'All' ? selectedLanguage : undefined,
-          sortBy,
-          minStars: minStars > 0 ? minStars : undefined,
+          category: appliedCategory !== 'All' ? appliedCategory : undefined,
+          language: appliedLanguage !== 'All' ? appliedLanguage : undefined,
+          sortBy: appliedSortBy,
+          minStars: appliedMinStars > 0 ? appliedMinStars : undefined,
           search: activeSearchQuery || undefined,
         }
         const cacheKey = `home_${JSON.stringify(filters)}`
@@ -285,7 +302,26 @@ export default function Home() {
         }
       }
     }
-  }, [activeTab, currentPage, hasSearched, activeSearchQuery, selectedCategory, selectedLanguage, sortBy, minStars])
+  }, [activeTab, currentPage, hasSearched, activeSearchQuery, appliedCategory, appliedLanguage, appliedSortBy, appliedMinStars])
+
+  // Apply filters function for Developer Ranking
+  const handleApplyDeveloperFilters = () => {
+    setAppliedCountry(selectedCountry)
+    setAppliedCity(selectedCity)
+    setAppliedCompany(selectedCompany)
+    setAppliedProfileType(selectedProfileType)
+    setDevelopersPage(1) // Reset to page 1 when filters are applied
+  }
+
+  // Apply filters function for Home/Newly Added tabs
+  const handleApplyProjectFilters = () => {
+    setAppliedCategory(selectedCategory)
+    setAppliedLanguage(selectedLanguage)
+    setAppliedSortBy(sortBy)
+    setAppliedMinStars(minStars)
+    setCurrentPage(1) // Reset to page 1 when filters are applied
+    setShowFilters(false) // Close filter panel after applying
+  }
 
   // Fetch developers ranking with auto-discovery (OPTIMIZED: Fast loading)
   useEffect(() => {
@@ -295,14 +331,14 @@ export default function Home() {
           setDevelopersLoading(true)
           
           // Fetch immediately - backend returns cached data first
-          // Only pass filters if they're not empty and not "All" options
+          // Only pass applied filters if they're not empty and not "All" options
           const response = await getDevelopersRanking(
             developersPage,
             25, // 25 per page
-            selectedCountry && selectedCountry !== '' ? selectedCountry : undefined,
-            selectedCity && selectedCity !== '' ? selectedCity : undefined,
-            selectedCompany && selectedCompany !== '' ? selectedCompany : undefined,
-            selectedProfileType && selectedProfileType !== '' ? selectedProfileType : undefined,
+            appliedCountry && appliedCountry !== '' ? appliedCountry : undefined,
+            appliedCity && appliedCity !== '' ? appliedCity : undefined,
+            appliedCompany && appliedCompany !== '' ? appliedCompany : undefined,
+            appliedProfileType && appliedProfileType !== '' ? appliedProfileType : undefined,
             true // Enable auto-discovery (runs in background)
           )
           
@@ -314,14 +350,14 @@ export default function Home() {
             // Silently update - no toast spam
             if (response.autoDiscovered && developersPage === 1) {
               toast.success(`Found ${response.developers.length} developers!`, {
-                description: selectedCompany ? `From ${selectedCompany}` : 'Processing complete',
+                description: appliedCompany ? `From ${appliedCompany}` : 'Processing complete',
                 duration: 3000,
               })
             }
           } else if (developersPage === 1) {
             // Show message if no results - might be discovering
-            if (selectedCompany && selectedCompany !== '') {
-              toast.info(`Fetching ${selectedCompany} developers...`, {
+            if (appliedCompany && appliedCompany !== '') {
+              toast.info(`Fetching ${appliedCompany} developers...`, {
                 description: 'Searching GitHub and processing profiles. This may take 30-60 seconds.',
                 duration: 5000,
               })
@@ -344,7 +380,7 @@ export default function Home() {
       }
       fetchDevelopers()
     }
-  }, [activeTab, developersPage, selectedCountry, selectedCity, selectedCompany, selectedProfileType])
+  }, [activeTab, developersPage, appliedCountry, appliedCity, appliedCompany, appliedProfileType])
 
   // Handle rank search
   const handleRankSearch = async () => {
@@ -355,10 +391,10 @@ export default function Home() {
       setIsProcessingProfile(false)
       const result = await checkDeveloperRank(
         rankSearchQuery.trim(),
-        selectedCountry && selectedCountry !== '' ? selectedCountry : undefined,
-        selectedCity && selectedCity !== '' ? selectedCity : undefined,
-        selectedCompany && selectedCompany !== '' ? selectedCompany : undefined,
-        selectedProfileType && selectedProfileType !== '' ? selectedProfileType : undefined
+        appliedCountry && appliedCountry !== '' ? appliedCountry : undefined,
+        appliedCity && appliedCity !== '' ? appliedCity : undefined,
+        appliedCompany && appliedCompany !== '' ? appliedCompany : undefined,
+        appliedProfileType && appliedProfileType !== '' ? appliedProfileType : undefined
       )
       setRankSearchResult(result)
       
@@ -414,10 +450,10 @@ export default function Home() {
       try {
         const result = await checkDeveloperRank(
           rankSearchQuery.trim(),
-          selectedCountry && selectedCountry !== '' ? selectedCountry : undefined,
-          selectedCity && selectedCity !== '' ? selectedCity : undefined,
-          selectedCompany && selectedCompany !== '' ? selectedCompany : undefined,
-          selectedProfileType && selectedProfileType !== '' ? selectedProfileType : undefined
+          appliedCountry && appliedCountry !== '' ? appliedCountry : undefined,
+          appliedCity && appliedCity !== '' ? appliedCity : undefined,
+          appliedCompany && appliedCompany !== '' ? appliedCompany : undefined,
+          appliedProfileType && appliedProfileType !== '' ? appliedProfileType : undefined
         )
         
         if (!result.processing && result.rank > 0) {
@@ -477,6 +513,24 @@ export default function Home() {
       }
     }
   }, [])
+
+  // Close company dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (companyDropdownRef.current && !companyDropdownRef.current.contains(event.target as Node)) {
+        setCompanyDropdownOpen(false)
+        setCompanySearchQuery('')
+      }
+    }
+
+    if (companyDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [companyDropdownOpen])
 
   // Fetch available filters
   useEffect(() => {
@@ -707,6 +761,7 @@ export default function Home() {
             onLanguageChange={setSelectedLanguage}
             onSortChange={setSortBy}
             onMinStarsChange={setMinStars}
+            onApplyFilters={handleApplyProjectFilters}
             onClose={() => setShowFilters(false)}
           />
         )}
@@ -935,7 +990,6 @@ export default function Home() {
                     if (value && value !== '') {
                       setSelectedCompany('')
                     }
-                    setDevelopersPage(1)
                   }}
                   className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={!!(selectedCompany && selectedCompany !== '')}
@@ -958,7 +1012,6 @@ export default function Home() {
                     value={selectedCity}
                     onChange={(e) => {
                       setSelectedCity(e.target.value)
-                      setDevelopersPage(1)
                     }}
                     className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={!!(selectedCompany && selectedCompany !== '')}
@@ -973,29 +1026,100 @@ export default function Home() {
                 </div>
               )}
 
-              <div className="flex flex-col">
-                <select
-                  value={selectedCompany}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    setSelectedCompany(value)
-                    // Clear location filters when company is selected
-                    if (value && value !== '') {
-                      setSelectedCountry('')
-                      setSelectedCity('')
+              <div className="flex flex-col relative" ref={companyDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!((selectedCountry && selectedCountry !== '') || (selectedCity && selectedCity !== ''))) {
+                      setCompanyDropdownOpen(!companyDropdownOpen)
+                      setCompanySearchQuery('')
                     }
-                    setDevelopersPage(1)
                   }}
-                  className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={!!((selectedCountry && selectedCountry !== '') || (selectedCity && selectedCity !== ''))}
+                  className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed text-left flex items-center justify-between min-w-[200px]"
                 >
-                  <option value="">All Companies</option>
-                  {availableCompanies.map((company) => (
-                    <option key={company} value={company}>
-                      {company}
-                    </option>
-                  ))}
-                </select>
+                  <span className="truncate">{selectedCompany || 'All Companies'}</span>
+                  <svg 
+                    className={`w-4 h-4 ml-2 transition-transform ${companyDropdownOpen ? 'transform rotate-180' : ''}`} 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {companyDropdownOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-xl z-50 max-h-80 overflow-hidden flex flex-col">
+                    {/* Search Input */}
+                    <div className="p-2 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Search companies..."
+                          value={companySearchQuery}
+                          onChange={(e) => setCompanySearchQuery(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Company List */}
+                    <div className="overflow-y-auto max-h-64">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCompany('')
+                          setCompanyDropdownOpen(false)
+                          setCompanySearchQuery('')
+                        }}
+                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                          !selectedCompany 
+                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium' 
+                            : 'text-gray-900 dark:text-white'
+                        }`}
+                      >
+                        All Companies
+                      </button>
+                      {availableCompanies
+                        .filter((company) =>
+                          company.toLowerCase().includes(companySearchQuery.toLowerCase())
+                        )
+                        .map((company) => (
+                          <button
+                            key={company}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCompany(company)
+                              setCompanyDropdownOpen(false)
+                              setCompanySearchQuery('')
+                              // Clear location filters when company is selected
+                              setSelectedCountry('')
+                              setSelectedCity('')
+                            }}
+                            className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                              selectedCompany === company
+                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium'
+                                : 'text-gray-900 dark:text-white'
+                            }`}
+                          >
+                            {company}
+                          </button>
+                        ))}
+                      {availableCompanies.filter((company) =>
+                        company.toLowerCase().includes(companySearchQuery.toLowerCase())
+                      ).length === 0 && (
+                        <div className="px-4 py-8 text-sm text-gray-500 dark:text-gray-400 text-center">
+                          No companies found
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
                 {(selectedCountry && selectedCountry !== '') || (selectedCity && selectedCity !== '') ? (
                   <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">Disabled when location is selected</span>
                 ) : null}
@@ -1005,7 +1129,6 @@ export default function Home() {
                 value={selectedProfileType}
                 onChange={(e) => {
                   setSelectedProfileType(e.target.value)
-                  setDevelopersPage(1)
                 }}
                 className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-500"
               >
@@ -1016,6 +1139,24 @@ export default function Home() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Apply Filters Button - Always Visible */}
+            <div className="flex items-center gap-3 mt-2">
+              <button
+                onClick={handleApplyDeveloperFilters}
+                disabled={developersLoading}
+                className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg text-sm font-semibold hover:from-blue-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                {developersLoading ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Applying...
+                  </span>
+                ) : (
+                  'Apply Filters'
+                )}
+              </button>
 
               {(selectedCountry || selectedCity || selectedCompany || selectedProfileType) && (
                 <button
@@ -1024,11 +1165,16 @@ export default function Home() {
                     setSelectedCity('')
                     setSelectedCompany('')
                     setSelectedProfileType('')
+                    // Also clear applied filters
+                    setAppliedCountry('')
+                    setAppliedCity('')
+                    setAppliedCompany('')
+                    setAppliedProfileType('')
                     setDevelopersPage(1)
                   }}
                   className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                 >
-                  Clear All Filters
+                  Clear All
                 </button>
               )}
             </div>

@@ -15,6 +15,7 @@ interface FilterPanelProps {
   onLanguageChange: (language: string) => void
   onSortChange: (sort: string) => void
   onMinStarsChange: (stars: number) => void
+  onApplyFilters: () => void
   onClose: () => void
 }
 
@@ -30,6 +31,7 @@ export default function FilterPanel({
   onLanguageChange,
   onSortChange,
   onMinStarsChange,
+  onApplyFilters,
   onClose,
 }: FilterPanelProps) {
   return (
@@ -144,6 +146,15 @@ export default function FilterPanel({
               </div>
             </div>
           </div>
+          
+          {/* Apply Filters Button */}
+          <button
+            onClick={onApplyFilters}
+            className="w-full px-4 py-3 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold hover:from-blue-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-lg hover:shadow-xl mb-3"
+          >
+            Apply Filters
+          </button>
+          
           <button
             onClick={() => {
               onCategoryChange('All')
