@@ -110,6 +110,17 @@ export const metadata: Metadata = {
   category: 'Technology',
   classification: 'Open Source Project Finder',
   manifest: '/manifest.json',
+  icons: {
+    icon: [
+      { url: '/icon.webp', type: 'image/webp' },
+      { url: '/icon.webp', type: 'image/webp', sizes: '32x32' },
+      { url: '/icon.webp', type: 'image/webp', sizes: '16x16' },
+    ],
+    apple: [
+      { url: '/icon.webp', type: 'image/webp' },
+    ],
+    shortcut: '/icon.webp',
+  },
   other: {
     'application-name': 'OpenRank',
     'apple-mobile-web-app-capable': 'yes',
