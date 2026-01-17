@@ -24,14 +24,14 @@ export default function Home() {
   const [selectedLanguage, setSelectedLanguage] = useState('All')
   const [sortBy, setSortBy] = useState('Rank')
   const [minStars, setMinStars] = useState(0)
-  
+
   // Applied filters (actually used for API calls)
   const [appliedCategory, setAppliedCategory] = useState('All')
   const [appliedLanguage, setAppliedLanguage] = useState('All')
   const [appliedSortBy, setAppliedSortBy] = useState('Rank')
   const [appliedMinStars, setAppliedMinStars] = useState(0)
   const [showScrollTop, setShowScrollTop] = useState(false)
-  
+
   const [projects, setProjects] = useState<Project[]>([])
   const categories = ['All', 'Frontend', 'Backend', 'AI/ML', 'GameDev', 'Systems', 'Mobile', 'DevOps', 'Other']
   const languages = ['All', 'JavaScript', 'TypeScript', 'Python', 'Java', 'Go', 'Rust', 'C++', 'C', 'C#', 'PHP', 'Ruby', 'Swift', 'Kotlin', 'Dart']
@@ -48,10 +48,10 @@ export default function Home() {
   const animatedPlaceholder = useAnimatedPlaceholder()
   const [hasSearched, setHasSearched] = useState(false)
   const [activeSearchQuery, setActiveSearchQuery] = useState('')
-  
+
   // Cache for API responses - keyed by exact call parameters
   const apiCacheRef = useRef<Map<string, { projects: Project[], totalPages?: number }>>(new Map())
-  
+
   // Developer Ranking State
   const [developers, setDevelopers] = useState<Developer[]>([])
   const [developersLoading, setDevelopersLoading] = useState(false)
@@ -62,7 +62,7 @@ export default function Home() {
   const [selectedCity, setSelectedCity] = useState<string>('')
   const [selectedCompany, setSelectedCompany] = useState<string>('')
   const [selectedProfileType, setSelectedProfileType] = useState<string>('')
-  
+
   // Applied filters (actually used for API calls)
   const [appliedCountry, setAppliedCountry] = useState<string>('')
   const [appliedCity, setAppliedCity] = useState<string>('')
@@ -83,39 +83,39 @@ export default function Home() {
 
   const validateSearchQuery = (query: string): boolean => {
     const trimmed = query.trim()
-    
+
     if (!trimmed) {
       toast.error('Search query cannot be empty')
       return false
     }
-    
+
     if (trimmed.length < 3) {
       toast.error('Please enter at least 3 characters to search')
       return false
     }
-    
+
     if (trimmed.length > 100) {
       toast.error('Search query is too long (max 100 characters)')
       return false
     }
-    
+
     return true
   }
 
   const handleGenerate = async () => {
     const trimmedQuery = searchQuery.trim()
-    
+
     if (!trimmedQuery || generating) return
-    
+
     if (!validateSearchQuery(trimmedQuery)) {
       return
     }
 
     try {
       setGenerating(true)
-      
+
       let finalQuery = trimmedQuery
-      
+
       try {
         const result = await extractKeywords(trimmedQuery)
         finalQuery = result.searchQuery || trimmedQuery
@@ -135,20 +135,20 @@ export default function Home() {
           minStars: appliedMinStars > 0 ? appliedMinStars : undefined,
           search: finalQuery || undefined,
         }
-        
+
         // Create cache key from filters
         const cacheKey = `home_${JSON.stringify(filters)}`
-        
+
         // Check cache first
         const cached = apiCacheRef.current.get(cacheKey)
         if (cached) {
           setProjects(cached.projects)
           return
         }
-        
+
         setLoading(true)
         const response = await getProjects(filters)
-        
+
         if (!response.projects || response.projects.length === 0) {
           toast.info('No projects found', {
             description: 'Try adjusting your search or filters',
@@ -156,14 +156,14 @@ export default function Home() {
         } else {
           toast.success(`Found ${response.projects.length} project${response.projects.length !== 1 ? 's' : ''}`)
         }
-        
+
         setProjects(response.projects)
-        
+
         // Store in cache
         apiCacheRef.current.set(cacheKey, { projects: response.projects })
       } catch (err: any) {
         const errorMessage = err?.message || 'Failed to fetch projects'
-        
+
         if (errorMessage.includes('Failed to fetch') || errorMessage.includes('network')) {
           toast.error('Network error', {
             description: 'Please check your internet connection and try again',
@@ -177,7 +177,7 @@ export default function Home() {
             description: errorMessage,
           })
         }
-        
+
         setProjects([])
       } finally {
         setLoading(false)
@@ -202,34 +202,34 @@ export default function Home() {
           minStars: appliedMinStars > 0 ? appliedMinStars : undefined,
           search: activeSearchQuery || undefined,
         }
-        
+
         // Create cache key from filters
         const cacheKey = `home_${JSON.stringify(filters)}`
-        
+
         // Check cache first - if exists, use cached data and skip API call
         const cached = apiCacheRef.current.get(cacheKey)
         if (cached) {
           setProjects(cached.projects)
           return
         }
-        
+
         // Cache miss - fetch from API
         setLoading(true)
         const response = await getProjects(filters)
-        
+
         if (response.projects.length === 0) {
           toast.info('No projects found', {
             description: 'Try adjusting your filters or search query',
           })
         }
-        
+
         setProjects(response.projects)
-        
+
         // Store in cache for future use
         apiCacheRef.current.set(cacheKey, { projects: response.projects })
       } catch (err: any) {
         const errorMessage = err?.message || 'Failed to fetch projects'
-        
+
         if (errorMessage.includes('Failed to fetch') || errorMessage.includes('network')) {
           toast.error('Network error', {
             description: 'Please check your internet connection',
@@ -239,7 +239,7 @@ export default function Home() {
             description: errorMessage,
           })
         }
-        
+
         setProjects([])
       } finally {
         setLoading(false)
@@ -253,7 +253,7 @@ export default function Home() {
     if (activeTab === 'Newly Added') {
       // Create cache key for newly added (page-based)
       const cacheKey = `newlyAdded_page_${currentPage}`
-      
+
       // Check cache first
       const cached = apiCacheRef.current.get(cacheKey)
       if (cached && cached.totalPages !== undefined) {
@@ -261,18 +261,18 @@ export default function Home() {
         setTotalPages(cached.totalPages)
         return
       }
-      
+
       const fetchNewlyAdded = async () => {
         try {
           setLoading(true)
           const response = await getNewlyAdded(currentPage, itemsPerPage)
           setProjects(response.projects)
           setTotalPages(response.totalPages)
-          
+
           // Store in cache
-          apiCacheRef.current.set(cacheKey, { 
-            projects: response.projects, 
-            totalPages: response.totalPages 
+          apiCacheRef.current.set(cacheKey, {
+            projects: response.projects,
+            totalPages: response.totalPages
           })
         } catch (err) {
           console.error('Error fetching newly added projects:', err)
@@ -329,22 +329,22 @@ export default function Home() {
       const fetchDevelopers = async () => {
         try {
           setDevelopersLoading(true)
-          
+
           // Fetch immediately - backend returns cached data first
           // Only pass applied filters if they're not empty and not "All" options
           const response = await getDevelopersRanking(
             developersPage,
-            25, // 25 per page
+            10, // 10 per page
             appliedCountry && appliedCountry !== '' ? appliedCountry : undefined,
             appliedCity && appliedCity !== '' ? appliedCity : undefined,
             appliedCompany && appliedCompany !== '' ? appliedCompany : undefined,
             appliedProfileType && appliedProfileType !== '' ? appliedProfileType : undefined,
             true // Enable auto-discovery (runs in background)
           )
-          
+
           setDevelopers(response.developers)
           setDevelopersTotalPages(response.totalPages)
-          
+
           // If we got results, show success (even if background processing is happening)
           if (response.developers.length > 0) {
             // Silently update - no toast spam
@@ -397,7 +397,7 @@ export default function Home() {
         appliedProfileType && appliedProfileType !== '' ? appliedProfileType : undefined
       )
       setRankSearchResult(result)
-      
+
       if (!result.eligible) {
         toast.error('Not Eligible for Ranking', {
           description: result.message || 'You do not meet the eligibility criteria.',
@@ -435,18 +435,18 @@ export default function Home() {
   // Poll for rank completion when processing
   const pollForRankCompletion = async () => {
     if (!rankSearchQuery.trim()) return
-    
+
     // Clear any existing interval
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current)
     }
-    
+
     let attempts = 0
     const maxAttempts = 30 // 30 attempts = 30 seconds (1 second intervals)
-    
+
     pollingIntervalRef.current = setInterval(async () => {
       attempts++
-      
+
       try {
         const result = await checkDeveloperRank(
           rankSearchQuery.trim(),
@@ -455,7 +455,7 @@ export default function Home() {
           appliedCompany && appliedCompany !== '' ? appliedCompany : undefined,
           appliedProfileType && appliedProfileType !== '' ? appliedProfileType : undefined
         )
-        
+
         if (!result.processing && result.rank > 0) {
           // Processing complete and rank found
           if (pollingIntervalRef.current) {
@@ -597,7 +597,7 @@ export default function Home() {
             <div className="flex items-center gap-8">
               <h1 className="text-xl font-heading font-semibold text-gray-900 dark:text-white">OpenRank</h1>
               <div className="hidden md:flex items-center gap-6">
-                <button 
+                <button
                   className="text-sm font-body text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex items-center gap-1.5 relative group cursor-not-allowed"
                   disabled
                 >
@@ -607,7 +607,7 @@ export default function Home() {
                     Coming soon
                   </span>
                 </button>
-                <button 
+                <button
                   className="text-sm font-body text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex items-center gap-1.5 relative group cursor-not-allowed"
                   disabled
                 >
@@ -771,33 +771,31 @@ export default function Home() {
       <section className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0a0a0f] sticky top-[73px] z-40 transition-colors">
         <div className="container mx-auto px-4">
           <div className="flex items-center gap-6">
-            <button 
+            <button
               onClick={() => {
                 setActiveTab('Home')
                 setCurrentPage(1)
               }}
-              className={`py-4 text-sm font-heading font-medium transition-colors ${
-                activeTab === 'Home'
+              className={`py-4 text-sm font-heading font-medium transition-colors ${activeTab === 'Home'
                   ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-white'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-              }`}
+                }`}
             >
               Home
             </button>
-            <button 
+            <button
               onClick={() => {
                 setActiveTab('Newly Added')
                 setCurrentPage(1)
               }}
-              className={`py-4 text-sm font-heading font-medium transition-colors ${
-                activeTab === 'Newly Added'
+              className={`py-4 text-sm font-heading font-medium transition-colors ${activeTab === 'Newly Added'
                   ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-white'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-              }`}
+                }`}
             >
               Newly Added
             </button>
-            <button 
+            <button
               className="py-4 text-sm font-heading font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex items-center gap-2 relative group cursor-not-allowed"
               disabled
             >
@@ -807,16 +805,15 @@ export default function Home() {
                 Coming soon
               </span>
             </button>
-            <button 
+            <button
               onClick={() => {
                 setActiveTab('Ranking of Global Developers')
                 setDevelopersPage(1)
               }}
-              className={`py-4 text-sm font-heading font-medium transition-colors ${
-                activeTab === 'Ranking of Global Developers'
+              className={`py-4 text-sm font-heading font-medium transition-colors ${activeTab === 'Ranking of Global Developers'
                   ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-white'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-              }`}
+                }`}
             >
               Ranking of Global Developers
             </button>
@@ -898,13 +895,12 @@ export default function Home() {
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`p-4 rounded-lg border ${
-                  rankSearchResult.processing
+                className={`p-4 rounded-lg border ${rankSearchResult.processing
                     ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800'
                     : !rankSearchResult.eligible || rankSearchResult.rank === 0
-                    ? 'bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 border-orange-200 dark:border-orange-800'
-                    : 'bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-blue-200 dark:border-blue-800'
-                }`}
+                      ? 'bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 border-orange-200 dark:border-orange-800'
+                      : 'bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-blue-200 dark:border-blue-800'
+                  }`}
               >
                 {rankSearchResult.processing ? (
                   <div>
@@ -1039,16 +1035,16 @@ export default function Home() {
                   className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed text-left flex items-center justify-between min-w-[200px]"
                 >
                   <span className="truncate">{selectedCompany || 'All Companies'}</span>
-                  <svg 
-                    className={`w-4 h-4 ml-2 transition-transform ${companyDropdownOpen ? 'transform rotate-180' : ''}`} 
-                    fill="none" 
-                    stroke="currentColor" 
+                  <svg
+                    className={`w-4 h-4 ml-2 transition-transform ${companyDropdownOpen ? 'transform rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
-                
+
                 {companyDropdownOpen && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-xl z-50 max-h-80 overflow-hidden flex flex-col">
                     {/* Search Input */}
@@ -1066,7 +1062,7 @@ export default function Home() {
                         />
                       </div>
                     </div>
-                    
+
                     {/* Company List */}
                     <div className="overflow-y-auto max-h-64">
                       <button
@@ -1076,11 +1072,10 @@ export default function Home() {
                           setCompanyDropdownOpen(false)
                           setCompanySearchQuery('')
                         }}
-                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-                          !selectedCompany 
-                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium' 
+                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${!selectedCompany
+                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium'
                             : 'text-gray-900 dark:text-white'
-                        }`}
+                          }`}
                       >
                         All Companies
                       </button>
@@ -1100,11 +1095,10 @@ export default function Home() {
                               setSelectedCountry('')
                               setSelectedCity('')
                             }}
-                            className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-                              selectedCompany === company
+                            className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${selectedCompany === company
                                 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium'
                                 : 'text-gray-900 dark:text-white'
-                            }`}
+                              }`}
                           >
                             {company}
                           </button>
@@ -1112,14 +1106,14 @@ export default function Home() {
                       {availableCompanies.filter((company) =>
                         company.toLowerCase().includes(companySearchQuery.toLowerCase())
                       ).length === 0 && (
-                        <div className="px-4 py-8 text-sm text-gray-500 dark:text-gray-400 text-center">
-                          No companies found
-                        </div>
-                      )}
+                          <div className="px-4 py-8 text-sm text-gray-500 dark:text-gray-400 text-center">
+                            No companies found
+                          </div>
+                        )}
                     </div>
                   </div>
                 )}
-                
+
                 {(selectedCountry && selectedCountry !== '') || (selectedCity && selectedCity !== '') ? (
                   <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">Disabled when location is selected</span>
                 ) : null}
@@ -1218,10 +1212,12 @@ export default function Home() {
                     </motion.div>
                   ))}
                 </AnimatePresence>
-                {developers.length === 0 && !developersLoading && (
+                {developers.length === 0 && !developersLoading && developersTotalPages <= 1 && (
                   <div className="text-center py-20">
+                    <Search className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">No developers found</h3>
                     <p className="text-gray-500 dark:text-gray-400">
-                      No developers found. Try adjusting your filters or check back later.
+                      Try adjusting your filters or check back later.
                     </p>
                   </div>
                 )}
@@ -1238,8 +1234,8 @@ export default function Home() {
                       transition={{ duration: 0.3, delay: index * 0.05 }}
                       className="w-full"
                     >
-                      <ProjectCard 
-                        project={project} 
+                      <ProjectCard
+                        project={project}
                         variant="horizontal"
                         onCardClick={(fullName) => {
                           setSelectedRepo(fullName)
@@ -1262,8 +1258,8 @@ export default function Home() {
                       transition={{ duration: 0.3, delay: index * 0.05 }}
                       className="h-full"
                     >
-                      <ProjectCard 
-                        project={project} 
+                      <ProjectCard
+                        project={project}
                         onCardClick={(fullName) => {
                           setSelectedRepo(fullName)
                           setIsModalOpen(true)
@@ -1284,7 +1280,7 @@ export default function Home() {
           </div>
         )}
 
-        {projects.length === 0 && !loading && (
+        {projects.length === 0 && !loading && totalPages <= 1 && activeTab !== 'Ranking of Global Developers' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1299,106 +1295,108 @@ export default function Home() {
         )}
 
         {activeTab === 'Newly Added' && totalPages > 1 && !loading && (
-          <div className="flex items-center justify-center gap-4 mt-12">
-            <button
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1 || loading}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-body text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              Previous
-            </button>
-            <div className="flex items-center gap-2">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = currentPage - 2 + i;
-                }
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => setCurrentPage(pageNum)}
-                    disabled={loading}
-                    className={`px-3 py-2 text-sm font-body rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                      currentPage === pageNum
-                        ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
-                        : 'text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
+          <div className="sticky bottom-4 z-50 flex items-center justify-center mt-12">
+            <div className="flex items-center gap-4 px-6 py-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-lg backdrop-blur-sm">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1 || loading}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-body text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Previous
+              </button>
+              <div className="flex items-center gap-2">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      disabled={loading}
+                      className={`px-3 py-2 text-sm font-body rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${currentPage === pageNum
+                          ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                          : 'text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="text-sm font-body text-gray-600 dark:text-gray-400">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages || loading}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-body text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
-            <span className="text-sm font-body text-gray-600 dark:text-gray-400">
-              Page {currentPage} of {totalPages}
-            </span>
-            <button
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages || loading}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-body text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-              <ChevronRight className="w-4 h-4" />
-            </button>
           </div>
         )}
 
         {activeTab === 'Ranking of Global Developers' && developersTotalPages > 1 && !developersLoading && (
-          <div className="flex items-center justify-center gap-4 mt-12">
-            <button
-              onClick={() => setDevelopersPage(prev => Math.max(1, prev - 1))}
-              disabled={developersPage === 1 || developersLoading}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-body text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              Previous
-            </button>
-            <div className="flex items-center gap-2">
-              {Array.from({ length: Math.min(5, developersTotalPages) }, (_, i) => {
-                let pageNum;
-                if (developersTotalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (developersPage <= 3) {
-                  pageNum = i + 1;
-                } else if (developersPage >= developersTotalPages - 2) {
-                  pageNum = developersTotalPages - 4 + i;
-                } else {
-                  pageNum = developersPage - 2 + i;
-                }
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => setDevelopersPage(pageNum)}
-                    disabled={developersLoading}
-                    className={`px-3 py-2 text-sm font-body rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                      developersPage === pageNum
-                        ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
-                        : 'text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
+          <div className="sticky bottom-4 z-50 flex items-center justify-center mt-12">
+            <div className="flex items-center gap-4 px-6 py-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-lg backdrop-blur-sm">
+              <button
+                onClick={() => setDevelopersPage(prev => Math.max(1, prev - 1))}
+                disabled={developersPage === 1 || developersLoading}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-body text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Previous
+              </button>
+              <div className="flex items-center gap-2">
+                {Array.from({ length: Math.min(5, developersTotalPages) }, (_, i) => {
+                  let pageNum;
+                  if (developersTotalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (developersPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (developersPage >= developersTotalPages - 2) {
+                    pageNum = developersTotalPages - 4 + i;
+                  } else {
+                    pageNum = developersPage - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setDevelopersPage(pageNum)}
+                      disabled={developersLoading}
+                      className={`px-3 py-2 text-sm font-body rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${developersPage === pageNum
+                          ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                          : 'text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="text-sm font-body text-gray-600 dark:text-gray-400">
+                Page {developersPage} of {developersTotalPages} • Showing 10 per page
+              </span>
+              <button
+                onClick={() => setDevelopersPage(prev => Math.min(developersTotalPages, prev + 1))}
+                disabled={developersPage === developersTotalPages || developersLoading}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-body text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
-            <span className="text-sm font-body text-gray-600 dark:text-gray-400">
-              Page {developersPage} of {developersTotalPages} • Showing 25 per page
-            </span>
-            <button
-              onClick={() => setDevelopersPage(prev => Math.min(developersTotalPages, prev + 1))}
-              disabled={developersPage === developersTotalPages || developersLoading}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-body text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-              <ChevronRight className="w-4 h-4" />
-            </button>
           </div>
         )}
 
@@ -1412,27 +1410,27 @@ export default function Home() {
               <p className="text-gray-600 dark:text-gray-400 text-sm font-body">Built for the open source community.</p>
             </div>
             <div className="flex gap-6">
-              <a 
-                href="https://github.com/Jeelislive" 
-                target="_blank" 
+              <a
+                href="https://github.com/Jeelislive"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                 aria-label="GitHub"
               >
                 <Github className="w-5 h-5" />
               </a>
-              <a 
-                href="https://x.com/rj_404_" 
-                target="_blank" 
+              <a
+                href="https://x.com/rj_404_"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                 aria-label="Twitter/X"
               >
                 <Twitter className="w-5 h-5" />
               </a>
-              <a 
-                href="https://medium.com/@jeelrupareliya255" 
-                target="_blank" 
+              <a
+                href="https://medium.com/@jeelrupareliya255"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                 aria-label="Medium"

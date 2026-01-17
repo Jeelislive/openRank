@@ -52,7 +52,7 @@ export interface DevelopersRankingResponse {
 
 export async function getDevelopersRanking(
   page: number = 1,
-  limit: number = 25,
+  limit: number = 10,
   country?: string,
   city?: string,
   company?: string,
